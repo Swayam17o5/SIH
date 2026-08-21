@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { apiRequest } from '../config/api'
 import {
   Grid,
@@ -10,109 +10,126 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Paper,
   Chip,
   Button,
   CircularProgress,
-  Alert,
-  Divider,
-  Stack,
-  LinearProgress
+  Alert
 } from '@mui/material'
 import {
-  Terrain as TerrainIcon,
-  Map as MapIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
-  Info as InfoIcon,
-  Palette as PaletteIcon
+  Science as ScienceIcon,
+  Public as PublicIcon
 } from '@mui/icons-material'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
+import DemViewToggle from '../components/dem/DemViewToggle'
+import Dem3DViewer from '../components/dem/Dem3DViewer'
+import DemStatsPanel from '../components/dem/DemStatsPanel'
 
 const DEMAnalysis = () => {
-  const [selectedDEM, setSelectedDEM] = useState('')
+  const [selectedDEM, setSelectedDEM] = useState('bailadila_iron_mine')
   const [demData, setDemData] = useState(null)
+  const [computedMetrics, setComputedMetrics] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [viewMode, setViewMode] = useState('3d') // '3d' | '2d'
   const [zoomLevel, setZoomLevel] = useState(1)
   const [imageLoaded, setImageLoaded] = useState(false)
 
-  // Available DEM files
+  // Available DEM files with explicit, honest source classifications
   const demFiles = [
     {
-      id: 'bingham_canyon',
-      name: 'Bingham Canyon Mine',
-      location: 'Utah, USA',
-      description: 'Large open-pit copper mine with significant terrain variations'
+      id: 'bailadila_iron_mine',
+      name: 'Bailadila Iron Ore Mine',
+      location: 'Chhattisgarh, India',
+      source_type: 'synthetic',
+      source: 'Geologically Representative Demo Data',
+      is_real_data: false,
+      crs: 'EPSG:32644 (UTM 44N)',
+      resolution: '15m grid',
+      disclaimer: 'Terrain is representative demo data and should not be interpreted as live mine measurements.',
+      description: 'Geologically representative open-pit iron ore model featuring steep highwalls, quarry benches, and waste dumps.'
+    },
+    {
+      id: 'malanjkhand_copper_mine',
+      name: 'Malanjkhand Copper Mine',
+      location: 'Madhya Pradesh, India',
+      source_type: 'synthetic',
+      source: 'Geologically Representative Demo Data',
+      is_real_data: false,
+      crs: 'EPSG:32644 (UTM 44N)',
+      resolution: '15m grid',
+      disclaimer: 'Terrain is representative demo data and should not be interpreted as live mine measurements.',
+      description: 'Geologically representative open-cast copper pit model with multi-tier concentric bench geometry.'
     },
     {
       id: 'chuquicamata',
       name: 'Chuquicamata Copper Mine',
-      location: 'Chile',
-      description: 'One of the largest open-pit mines in the world'
+      location: 'Atacama, Chile',
+      source_type: 'verified_dem',
+      source: 'SRTM 30m / USGS OpenTopography Satellite Raster',
+      is_real_data: true,
+      crs: 'EPSG:4326 (WGS84)',
+      resolution: '~21m (0.0002°)',
+      disclaimer: null,
+      description: 'Satellite-derived DEM raster of Chuquicamata open-pit mine (USGS/SRTM).'
+    },
+    {
+      id: 'bingham_canyon',
+      name: 'Bingham Canyon Mine',
+      location: 'Utah, USA',
+      source_type: 'verified_dem',
+      source: 'USGS 3DEP / SRTM Satellite Raster',
+      is_real_data: true,
+      crs: 'EPSG:4326 (WGS84)',
+      resolution: '~25m (0.0003°)',
+      disclaimer: null,
+      description: 'Satellite-derived DEM raster of Bingham Canyon open-pit mine (USGS 3DEP).'
     },
     {
       id: 'grasberg',
       name: 'Grasberg Mine',
       location: 'Papua, Indonesia',
-      description: 'High-altitude mining operation in mountainous terrain'
+      source_type: 'verified_dem',
+      source: 'SRTM / ALOS PALSAR Satellite Raster',
+      is_real_data: true,
+      crs: 'EPSG:4326 (WGS84)',
+      resolution: '~15m (0.00013°)',
+      disclaimer: null,
+      description: 'Satellite-derived DEM raster of high-altitude Grasberg mining complex (SRTM/ALOS).'
     }
   ]
 
-  // Color scale information
-  const colorScale = [
-    { color: '#2D5016', elevation: 'Low', description: 'Valley floors, water bodies' },
-    { color: '#4F7942', elevation: 'Low-Medium', description: 'Gentle slopes, plains' },
-    { color: '#8FBC8F', elevation: 'Medium', description: 'Rolling hills, moderate terrain' },
-    { color: '#DAA520', elevation: 'Medium-High', description: 'Steep slopes, ridges' },
-    { color: '#CD853F', elevation: 'High', description: 'Mountain slopes, cliffs' },
-    { color: '#A0522D', elevation: 'Very High', description: 'Rocky outcrops, peaks' },
-    { color: '#FFFFFF', elevation: 'Highest', description: 'Mountain peaks, extreme elevation' }
-  ]
-
-  // Fetch DEM data when selection changes
-  useEffect(() => {
-    console.log(`🔍 DEM selection useEffect triggered. selectedDEM: ${selectedDEM}`)
-    if (selectedDEM) {
-      console.log(`📥 Triggering fetchDEMData for: ${selectedDEM}`)
-      fetchDEMData()
-    } else {
-      console.log(`⏸️ No DEM selected, skipping fetch`)
-    }
-  }, [selectedDEM])
-
-  // Log component mount
-  useEffect(() => {
-    console.log(`🚀 DEMAnalysis component mounted`)
-    console.log(`📂 Available DEM files:`, demFiles)
-  }, [])
-
-  const fetchDEMData = async () => {
-    console.log(`🗺️ Fetching DEM data for: ${selectedDEM}`)
+  // Fetch DEM data when selectedDEM changes
+  const fetchDEMData = useCallback(async () => {
     setLoading(true)
     setError(null)
     setImageLoaded(false)
-    
+    setComputedMetrics(null)
+
     try {
-      console.log(`📡 Making API request to: /api/dem/analyze/${selectedDEM}`)
       const data = await apiRequest(`/api/dem/analyze/${selectedDEM}`)
-      console.log(`✅ DEM data received:`, data)
       setDemData(data)
     } catch (err) {
       console.error(`❌ DEM fetch failed for ${selectedDEM}:`, err)
-      setError(err.message)
+      setError(err.message || 'Failed to load DEM dataset')
       setDemData(null)
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedDEM])
+
+  useEffect(() => {
+    if (selectedDEM) {
+      fetchDEMData()
+    }
+  }, [selectedDEM, fetchDEMData])
 
   const handleDEMChange = (event) => {
-    const newDEM = event.target.value
-    console.log(`🔄 DEM selection changed from ${selectedDEM} to ${newDEM}`)
-    setSelectedDEM(newDEM)
+    const newSiteId = event.target.value
+    setSelectedDEM(newSiteId)
   }
 
   const handleZoomIn = () => {
@@ -134,99 +151,54 @@ const DEMAnalysis = () => {
     }
   }
 
-  const StatisticCard = ({ title, value, unit, color, icon }) => (
-    <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-      <CardContent sx={{ textAlign: 'center', py: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
-          {icon}
-        </Box>
-        <Typography variant="h5" sx={{ color: color, fontWeight: 700, mb: 0.5 }}>
-          {value}
-        </Typography>
-        <Typography variant="caption" sx={{ color: '#94a3b8' }}>
-          {unit}
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'white', mt: 1, fontWeight: 500 }}>
-          {title}
-        </Typography>
-      </CardContent>
-    </Card>
-  )
+  const activeSite = demFiles.find(f => f.id === selectedDEM)
 
-  const ColorScaleLegend = () => (
-    <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <PaletteIcon sx={{ color: '#3b82f6', mr: 1 }} />
-          <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-            Elevation Color Scale
-          </Typography>
-        </Box>
-        <Stack spacing={1}>
-          {colorScale.map((item, index) => (
-            <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box
-                sx={{
-                  width: 20,
-                  height: 20,
-                  backgroundColor: item.color,
-                  borderRadius: 1,
-                  border: '1px solid #334155'
-                }}
-              />
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
-                  {item.elevation}
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#94a3b8' }}>
-                  {item.description}
-                </Typography>
-              </Box>
-            </Box>
-          ))}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
+  // Merged statistics object ensuring single source of truth for slope and multi-factor metrics
+  const mergedStatistics = {
+    ...(demData?.statistics || {}),
+    ...(computedMetrics || {})
+  }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', p: 3 }}>
-      {/* Header */}
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', p: { xs: 2, md: 3 } }}>
+      {/* Header Banner */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
       >
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, color: '#3b82f6' }}>
-            🗺️ Digital Elevation Model (DEM) Analysis
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#94a3b8', mb: 1 }}>
-            Interactive elevation mapping and terrain analysis for rockfall risk assessment
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#10b981', mb: 3, fontWeight: 600 }}>
-            🎨 Color-coded elevation visualization from .tif to PNG conversion
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <span>🏔️</span> 3D Digital Elevation Model (DEM) Analysis
+            </Typography>
+            <DemViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </Box>
+          <Typography variant="body1" sx={{ color: '#94a3b8' }}>
+            Client-side interactive 3D terrain mesh viewer with multi-factor geomorphological risk assessment & slope hazard detection.
           </Typography>
         </Box>
       </motion.div>
 
-      {/* Controls */}
+      {/* Site Selector Bar */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
+        transition={{ delay: 0.1, duration: 0.4 }}
       >
         <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155', mb: 3 }}>
-          <CardContent>
-            <Grid container spacing={3} alignItems="center">
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: '#94a3b8' }}>Select DEM File</InputLabel>
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={5}>
+                <FormControl fullWidth size="small">
+                  <InputLabel sx={{ color: '#94a3b8' }}>Select DEM Mining Site</InputLabel>
                   <Select
                     value={selectedDEM}
                     onChange={handleDEMChange}
+                    label="Select DEM Mining Site"
                     sx={{
                       color: 'white',
+                      backgroundColor: '#0f172a',
                       '& .MuiOutlinedInput-notchedOutline': {
                         borderColor: '#334155'
                       },
@@ -237,51 +209,68 @@ const DEMAnalysis = () => {
                   >
                     {demFiles.map((file) => (
                       <MenuItem key={file.id} value={file.id}>
-                        <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                            {file.name}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#94a3b8' }}>
-                            {file.location}
-                          </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'white' }}>
+                              {file.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                              {file.location}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            icon={file.is_real_data ? <PublicIcon sx={{ fontSize: '0.8rem !important' }} /> : <ScienceIcon sx={{ fontSize: '0.8rem !important' }} />}
+                            label={file.is_real_data ? 'Verified DEM' : 'Demo Data'}
+                            size="small"
+                            sx={{
+                              ml: 1.5,
+                              fontSize: '0.68rem',
+                              height: 20,
+                              backgroundColor: file.is_real_data ? 'rgba(59, 130, 246, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                              color: file.is_real_data ? '#60a5fa' : '#eab308',
+                              border: `1px solid ${file.is_real_data ? '#60a5fa40' : '#eab30840'}`
+                            }}
+                          />
                         </Box>
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </Grid>
-              
+
               <Grid item xs={12} md={4}>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
                     variant="outlined"
+                    size="small"
                     startIcon={<RefreshIcon />}
                     onClick={fetchDEMData}
                     disabled={!selectedDEM || loading}
-                    sx={{ color: '#3b82f6', borderColor: '#3b82f6' }}
+                    sx={{ color: '#3b82f6', borderColor: '#334155', '&:hover': { borderColor: '#3b82f6' } }}
                   >
-                    Refresh
+                    Reload
                   </Button>
                   <Button
                     variant="outlined"
+                    size="small"
                     startIcon={<DownloadIcon />}
                     onClick={handleDownload}
                     disabled={!demData}
-                    sx={{ color: '#10b981', borderColor: '#10b981' }}
+                    sx={{ color: '#10b981', borderColor: '#334155', '&:hover': { borderColor: '#10b981' } }}
                   >
-                    Download
+                    Export 2D Map
                   </Button>
                 </Box>
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                {selectedDEM && (
-                  <Box>
-                    <Typography variant="body2" sx={{ color: '#94a3b8', mb: 1 }}>
-                      Selected: {demFiles.find(f => f.id === selectedDEM)?.name}
-                    </Typography>
+              <Grid item xs={12} md={3}>
+                {activeSite && (
+                  <Box sx={{ textAlign: { md: 'right', xs: 'left' } }}>
                     <Typography variant="caption" sx={{ color: '#64748b' }}>
-                      {demFiles.find(f => f.id === selectedDEM)?.description}
+                      Selected Site
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600 }}>
+                      {activeSite.name}
                     </Typography>
                   </Box>
                 )}
@@ -291,33 +280,35 @@ const DEMAnalysis = () => {
         </Card>
       </motion.div>
 
-      {/* Main Content */}
+      {/* Main Content Grid */}
       <Grid container spacing={3}>
-        {/* DEM Visualization */}
+        {/* Terrain Viewer Section (3D or 2D) */}
         <Grid item xs={12} lg={8}>
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
           >
             <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155', minHeight: 600 }}>
-              <CardContent>
+              <CardContent sx={{ p: 2 }}>
+                {/* Header inside viewer card */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                    Elevation Map Visualization
+                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, fontSize: '1.05rem' }}>
+                    {viewMode === '3d' ? '3D Interactive Terrain Mesh' : '2D Color-Coded Heatmap Map'}
                   </Typography>
-                  {demData && (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+
+                  {viewMode === '2d' && demData && (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Button
                         size="small"
                         variant="outlined"
                         onClick={handleZoomOut}
-                        sx={{ minWidth: 40, color: '#64748b', borderColor: '#334155' }}
+                        sx={{ minWidth: 36, px: 1, color: '#94a3b8', borderColor: '#334155' }}
                       >
                         <ZoomOutIcon fontSize="small" />
                       </Button>
-                      <Chip 
-                        label={`${Math.round(zoomLevel * 100)}%`} 
+                      <Chip
+                        label={`${Math.round(zoomLevel * 100)}%`}
                         size="small"
                         sx={{ backgroundColor: '#334155', color: 'white' }}
                       />
@@ -325,7 +316,7 @@ const DEMAnalysis = () => {
                         size="small"
                         variant="outlined"
                         onClick={handleZoomIn}
-                        sx={{ minWidth: 40, color: '#64748b', borderColor: '#334155' }}
+                        sx={{ minWidth: 36, px: 1, color: '#94a3b8', borderColor: '#334155' }}
                       >
                         <ZoomInIcon fontSize="small" />
                       </Button>
@@ -333,11 +324,12 @@ const DEMAnalysis = () => {
                   )}
                 </Box>
 
+                {/* Viewport container */}
                 <Box
                   sx={{
                     width: '100%',
-                    height: 500,
-                    backgroundColor: '#0f172a',
+                    height: 540,
+                    backgroundColor: '#0a0f1d',
                     borderRadius: 2,
                     display: 'flex',
                     alignItems: 'center',
@@ -349,31 +341,30 @@ const DEMAnalysis = () => {
                   {loading && (
                     <Box sx={{ textAlign: 'center' }}>
                       <CircularProgress sx={{ color: '#3b82f6', mb: 2 }} />
-                      <Typography variant="body1" sx={{ color: '#94a3b8' }}>
-                        Processing DEM data...
+                      <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                        Processing DEM grid & calculating multi-factor slopes...
                       </Typography>
                     </Box>
                   )}
 
                   {error && (
-                    <Alert severity="error" sx={{ maxWidth: 400 }}>
+                    <Alert severity="error" sx={{ maxWidth: 450 }}>
                       {error}
                     </Alert>
                   )}
 
-                  {!selectedDEM && !loading && (
-                    <Box sx={{ textAlign: 'center' }}>
-                      <TerrainIcon sx={{ fontSize: 64, color: '#64748b', mb: 2 }} />
-                      <Typography variant="h6" sx={{ color: '#94a3b8', mb: 1 }}>
-                        Select a DEM file to view elevation map
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: '#64748b' }}>
-                        Choose from Bingham Canyon, Chuquicamata, or Grasberg mines
-                      </Typography>
-                    </Box>
+                  {/* 3D Viewer Mode */}
+                  {!loading && !error && viewMode === '3d' && demData && (
+                    <Dem3DViewer
+                      key={selectedDEM}
+                      mesh3d={demData.mesh3d}
+                      siteName={activeSite?.name}
+                      onTerrainComputed={setComputedMetrics}
+                    />
                   )}
 
-                  {demData && !loading && (
+                  {/* 2D Fallback Mode */}
+                  {!loading && !error && viewMode === '2d' && demData && (
                     <Box
                       sx={{
                         width: '100%',
@@ -382,7 +373,7 @@ const DEMAnalysis = () => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         transform: `scale(${zoomLevel})`,
-                        transition: 'transform 0.3s ease'
+                        transition: 'transform 0.25s ease'
                       }}
                     >
                       <img
@@ -398,17 +389,8 @@ const DEMAnalysis = () => {
                         onLoad={() => setImageLoaded(true)}
                         onError={() => setError('Failed to load elevation map image')}
                       />
-                      {!imageLoaded && demData && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '100%',
-                            height: '100%'
-                          }}
-                        >
+                      {!imageLoaded && (
+                        <Box sx={{ position: 'absolute' }}>
                           <CircularProgress sx={{ color: '#3b82f6' }} />
                         </Box>
                       )}
@@ -420,94 +402,14 @@ const DEMAnalysis = () => {
           </motion.div>
         </Grid>
 
-        {/* Statistics and Color Scale */}
+        {/* Right-Hand Statistics & Slope Ramp Panel */}
         <Grid item xs={12} lg={4}>
-          <Stack spacing={3}>
-            {/* Statistics */}
-            {demData && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4, duration: 0.5 }}
-              >
-                <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                      <InfoIcon sx={{ color: '#3b82f6', mr: 1 }} />
-                      <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                        Elevation Statistics
-                      </Typography>
-                    </Box>
-                    
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <StatisticCard
-                          title="Minimum"
-                          value={demData.statistics?.min_elevation || 'N/A'}
-                          unit="meters"
-                          color="#22c55e"
-                          icon={<TerrainIcon sx={{ color: '#22c55e' }} />}
-                        />
-                      </Grid>
-                      <Grid item xs={6}>
-                        <StatisticCard
-                          title="Maximum"
-                          value={demData.statistics?.max_elevation || 'N/A'}
-                          unit="meters"
-                          color="#f44336"
-                          icon={<TerrainIcon sx={{ color: '#f44336' }} />}
-                        />
-                      </Grid>
-                      <Grid item xs={6}>
-                        <StatisticCard
-                          title="Average"
-                          value={demData.statistics?.mean_elevation || 'N/A'}
-                          unit="meters"
-                          color="#3b82f6"
-                          icon={<TerrainIcon sx={{ color: '#3b82f6' }} />}
-                        />
-                      </Grid>
-                      <Grid item xs={6}>
-                        <StatisticCard
-                          title="Std Dev"
-                          value={demData.statistics?.std_elevation || 'N/A'}
-                          unit="meters"
-                          color="#8b5cf6"
-                          icon={<TerrainIcon sx={{ color: '#8b5cf6' }} />}
-                        />
-                      </Grid>
-                    </Grid>
-
-                    <Divider sx={{ my: 2, borderColor: '#334155' }} />
-                    
-                    <Box>
-                      <Typography variant="body2" sx={{ color: '#94a3b8', mb: 1 }}>
-                        Terrain Analysis
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'white', mb: 1 }}>
-                        Elevation Range: {demData.statistics?.elevation_range || 'N/A'} meters
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'white', mb: 1 }}>
-                        Terrain Type: {demData.statistics?.terrain_type || 'Complex'}
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'white' }}>
-                        Risk Assessment: {demData.statistics?.risk_level || 'Moderate to High'}
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Color Scale Legend */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-            >
-              <ColorScaleLegend />
-            </motion.div>
-          </Stack>
+          <DemStatsPanel
+            statistics={mergedStatistics}
+            selectedFile={selectedDEM}
+            demFiles={demFiles}
+            sourceInfo={demData?.source_info}
+          />
         </Grid>
       </Grid>
     </Box>

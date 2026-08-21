@@ -1249,24 +1249,68 @@ async def get_dem_files():
     
     dem_files = [
         {
-            "id": "bingham_canyon",
-            "name": "Bingham Canyon Mine",
-            "location": "Utah, USA",
-            "description": "Large open-pit copper mine with significant terrain variations",
-            "file_path": str(backend_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif")
+            "id": "bailadila_iron_mine",
+            "name": "Bailadila Iron Ore Mine",
+            "location": "Chhattisgarh, India",
+            "source_type": "synthetic",
+            "source": "Geologically Representative Demo Data",
+            "is_real_data": False,
+            "crs": "EPSG:32644 (UTM 44N)",
+            "resolution": "15m grid",
+            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements.",
+            "description": "Geologically representative open-pit iron ore model featuring steep highwalls, quarry benches, and waste dumps.",
+            "file_path": str(backend_root / "data" / "DEM" / "Bailadila_Iron_Ore_Mine.tif")
+        },
+        {
+            "id": "malanjkhand_copper_mine",
+            "name": "Malanjkhand Copper Mine",
+            "location": "Madhya Pradesh, India",
+            "source_type": "synthetic",
+            "source": "Geologically Representative Demo Data",
+            "is_real_data": False,
+            "crs": "EPSG:32644 (UTM 44N)",
+            "resolution": "15m grid",
+            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements.",
+            "description": "Geologically representative open-cast copper pit model with multi-tier concentric bench geometry.",
+            "file_path": str(backend_root / "data" / "DEM" / "Malanjkhand_Copper_Mine.tif")
         },
         {
             "id": "chuquicamata",
             "name": "Chuquicamata Copper Mine", 
-            "location": "Chile",
-            "description": "One of the largest open-pit mines in the world",
+            "location": "Atacama, Chile",
+            "source_type": "verified_dem",
+            "source": "SRTM 30m / USGS OpenTopography Satellite Elevation Raster",
+            "is_real_data": True,
+            "crs": "EPSG:4326 (WGS84)",
+            "resolution": "~21m (0.0002°)",
+            "disclaimer": None,
+            "description": "Satellite-derived DEM raster of Chuquicamata open-pit mine (USGS/SRTM).",
             "file_path": str(backend_root / "data" / "DEM" / "Chuquicamata_copper_Mine.tif")
+        },
+        {
+            "id": "bingham_canyon",
+            "name": "Bingham Canyon Mine",
+            "location": "Utah, USA",
+            "source_type": "verified_dem",
+            "source": "USGS 3DEP / SRTM Satellite Elevation Raster",
+            "is_real_data": True,
+            "crs": "EPSG:4326 (WGS84)",
+            "resolution": "~25m (0.0003°)",
+            "disclaimer": None,
+            "description": "Satellite-derived DEM raster of Bingham Canyon open-pit mine (USGS 3DEP).",
+            "file_path": str(backend_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif")
         },
         {
             "id": "grasberg",
             "name": "Grasberg Mine",
             "location": "Papua, Indonesia", 
-            "description": "High-altitude mining operation in mountainous terrain",
+            "source_type": "verified_dem",
+            "source": "SRTM / ALOS PALSAR Satellite Elevation Raster",
+            "is_real_data": True,
+            "crs": "EPSG:4326 (WGS84)",
+            "resolution": "~15m (0.00013°)",
+            "disclaimer": None,
+            "description": "Satellite-derived DEM raster of high-altitude Grasberg mining complex (SRTM/ALOS).",
             "file_path": str(backend_root / "data" / "DEM" / "Grasberg_Mine_Indonesia.tif")
         }
     ]
@@ -1285,16 +1329,17 @@ async def get_dem_files():
 
 @app.get("/api/dem/analyze/{dem_id}")
 async def analyze_dem(dem_id: str):
-    """Analyze DEM file and return color-coded visualization with statistics"""
+    """Analyze DEM file and return color-coded visualization with statistics and 3D mesh data"""
     logger.info(f"🗺️ DEM analysis requested for: {dem_id}")
     
     try:
         # Map DEM IDs to file paths - DEM files are in backend/data/DEM/
-        # Use paths relative to backend folder for deployment compatibility
         backend_root = Path(__file__).parent  # This is the backend/ directory
         dem_files = {
-            "bingham_canyon": backend_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif",
-            "chuquicamata": backend_root / "data" / "DEM" / "Chuquicamata_copper_Mine.tif", 
+            "bailadila_iron_mine": backend_root / "data" / "DEM" / "Bailadila_Iron_Ore_Mine.tif",
+            "malanjkhand_copper_mine": backend_root / "data" / "DEM" / "Malanjkhand_Copper_Mine.tif",
+            "chuquicamata": backend_root / "data" / "DEM" / "Chuquicamata_copper_Mine.tif",
+            "bingham_canyon": backend_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif", 
             "grasberg": backend_root / "data" / "DEM" / "Grasberg_Mine_Indonesia.tif"
         }
         
@@ -1332,6 +1377,8 @@ async def analyze_dem(dem_id: str):
             "dem_id": dem_id,
             "image_url": result["image_url"],
             "statistics": result["statistics"],
+            "source_info": result.get("source_info"),
+            "mesh3d": result.get("mesh3d"),
             "processing_time": result["processing_time"],
             "timestamp": datetime.now().isoformat()
         }
@@ -1345,9 +1392,62 @@ async def analyze_dem(dem_id: str):
         raise HTTPException(status_code=500, detail=f"DEM analysis failed: {str(e)}")
 
 async def process_dem_file(file_path: Path, dem_id: str):
-    """Process DEM .tif file and generate color-coded PNG visualization"""
+    """Process DEM .tif file and generate color-coded PNG visualization and multi-factor 3D terrain metrics"""
     logger.info(f"🔬 Processing DEM file: {file_path}")
     
+    # Metadata mapping
+    source_metadata_map = {
+        "bailadila_iron_mine": {
+            "source_type": "synthetic",
+            "source": "Geologically Representative Demo Data",
+            "is_real_data": False,
+            "crs": "EPSG:32644 (UTM 44N)",
+            "resolution": "15m grid",
+            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements."
+        },
+        "malanjkhand_copper_mine": {
+            "source_type": "synthetic",
+            "source": "Geologically Representative Demo Data",
+            "is_real_data": False,
+            "crs": "EPSG:32644 (UTM 44N)",
+            "resolution": "15m grid",
+            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements."
+        },
+        "chuquicamata": {
+            "source_type": "verified_dem",
+            "source": "SRTM 30m / USGS OpenTopography Satellite Elevation Raster",
+            "is_real_data": True,
+            "crs": "EPSG:4326 (WGS84)",
+            "resolution": "~21m (0.0002°)",
+            "disclaimer": None
+        },
+        "bingham_canyon": {
+            "source_type": "verified_dem",
+            "source": "USGS 3DEP / SRTM Satellite Elevation Raster",
+            "is_real_data": True,
+            "crs": "EPSG:4326 (WGS84)",
+            "resolution": "~25m (0.0003°)",
+            "disclaimer": None
+        },
+        "grasberg": {
+            "source_type": "verified_dem",
+            "source": "SRTM / ALOS PALSAR Satellite Elevation Raster",
+            "is_real_data": True,
+            "crs": "EPSG:4326 (WGS84)",
+            "resolution": "~15m (0.00013°)",
+            "disclaimer": None
+        }
+    }
+    
+    source_info = source_metadata_map.get(dem_id, {
+        "source_type": "unknown",
+        "source": "Local DEM File",
+        "is_real_data": False,
+        "crs": "Local",
+        "resolution": "N/A",
+        "disclaimer": None
+    })
+
     try:
         # Try to import required libraries
         try:
@@ -1359,11 +1459,11 @@ async def process_dem_file(file_path: Path, dem_id: str):
             from PIL import Image
             import io
             import base64
+            from scipy import ndimage
             logger.info("✅ All geospatial libraries imported successfully")
         except ImportError as e:
             logger.warning(f"⚠️ Geospatial libraries not available: {e}")
             logger.info("🔄 Returning mock data instead")
-            # Return mock data when libraries are missing
             return {
                 "image_url": f"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
                 "statistics": {
@@ -1371,18 +1471,30 @@ async def process_dem_file(file_path: Path, dem_id: str):
                     "max_elevation": 3000.0,
                     "mean_elevation": 2000.0,
                     "std_elevation": 500.0,
-                    "area_km2": 25.0,
-                    "slope_analysis": {
-                        "gentle_slopes": 30.0,
-                        "moderate_slopes": 45.0, 
-                        "steep_slopes": 25.0
-                    },
-                    "risk_zones": {
-                        "low_risk": 40.0,
-                        "medium_risk": 35.0,
-                        "high_risk": 25.0
+                    "elevation_range": 2000.0,
+                    "max_slope_deg": 48.5,
+                    "mean_slope_deg": 18.2,
+                    "median_slope_deg": 14.5,
+                    "std_slope_deg": 11.2,
+                    "slope_area_gt_30": 12.0,
+                    "slope_area_gt_40": 4.5,
+                    "slope_area_gt_48": 1.2,
+                    "roughness_tri": 2.1,
+                    "curvature": 0.0025,
+                    "risk_score": 48.0,
+                    "risk_level": "High",
+                    "terrain_type": "Open-Pit Mine",
+                    "steep_point": {
+                        "row": 64,
+                        "col": 64,
+                        "x_norm": 0.0,
+                        "y_norm": 0.0,
+                        "z_elevation": 2500.0,
+                        "slope_deg": 48.5
                     }
                 },
+                "source_info": source_info,
+                "mesh3d": None,
                 "processing_time": 0.1
             }
         
@@ -1390,44 +1502,149 @@ async def process_dem_file(file_path: Path, dem_id: str):
         
         # Read DEM data
         with rasterio.open(file_path) as dataset:
-            elevation_data = dataset.read(1)
-            # Handle nodata values
+            elevation_data = dataset.read(1).astype(np.float64)
             if dataset.nodata is not None:
-                elevation_data = np.ma.masked_where(elevation_data == dataset.nodata, elevation_data)
+                elevation_data = np.where(elevation_data == dataset.nodata, np.nan, elevation_data)
+            elevation_data = np.where(
+                (elevation_data < -500) | (elevation_data > 9000), 
+                np.nan, 
+                elevation_data
+            )
+            
+            # Determine true physical cell size in meters
+            if dataset.crs and dataset.crs.is_projected:
+                res_x, res_y = dataset.res
+                raw_h, raw_w = elevation_data.shape
+                cell_size_m = float((res_x * (raw_w / 128) + res_y * (raw_h / 128)) / 2.0)
             else:
-                # If no nodata value specified, mask extreme values
-                elevation_data = np.ma.masked_where(
-                    (elevation_data < -1000) | (elevation_data > 10000), 
-                    elevation_data
-                )
+                lat = (dataset.bounds.top + dataset.bounds.bottom) / 2.0
+                deg_to_m_lat = 111132.0
+                deg_to_m_lon = 111132.0 * np.cos(np.radians(lat))
+                cell_size_x = ((dataset.bounds.right - dataset.bounds.left) / 128.0) * deg_to_m_lon
+                cell_size_y = ((dataset.bounds.top - dataset.bounds.bottom) / 128.0) * deg_to_m_lat
+                cell_size_m = float((abs(cell_size_x) + abs(cell_size_y)) / 2.0)
+                
+            cell_size_m = max(5.0, cell_size_m)
         
-        # Calculate statistics
-        valid_data = elevation_data.compressed()  # Remove masked values
-        if len(valid_data) == 0:
+        valid_mask = ~np.isnan(elevation_data)
+        if not np.any(valid_mask):
             raise ValueError("No valid elevation data found in DEM file")
             
-        stats = {
-            "min_elevation": round(float(np.min(valid_data)), 1),
-            "max_elevation": round(float(np.max(valid_data)), 1),
-            "mean_elevation": round(float(np.mean(valid_data)), 1),
-            "std_elevation": round(float(np.std(valid_data)), 1),
-            "elevation_range": round(float(np.max(valid_data) - np.min(valid_data)), 1)
+        valid_mean = float(np.mean(elevation_data[valid_mask]))
+        data_filled = np.where(np.isnan(elevation_data), valid_mean, elevation_data)
+        
+        # Downsample DEM to 128x128 grid for 3D Mesh & standard analysis
+        h, w = data_filled.shape
+        grid_size = 128
+        grid3d = ndimage.zoom(data_filled, (grid_size / h, grid_size / w), order=1)
+        
+        # 1. Slope Calculation (Spatial Finite Differences)
+        dx, dy = np.gradient(grid3d, cell_size_m)
+        grad_mag = np.sqrt(dx**2 + dy**2)
+        slope_rad = np.arctan(grad_mag)
+        slope_deg_grid = np.degrees(slope_rad)
+        
+        # 2. Curvature (Laplacian)
+        d2x, _ = np.gradient(dx, cell_size_m)
+        _, d2y = np.gradient(dy, cell_size_m)
+        laplacian = d2x + d2y
+        
+        # 3. Roughness (TRI)
+        local_mean = ndimage.uniform_filter(grid3d, size=3)
+        tri_grid = np.abs(grid3d - local_mean)
+        
+        # 4. Comprehensive Metrics
+        min_elev = float(np.min(grid3d))
+        max_elev = float(np.max(grid3d))
+        mean_elev = float(np.mean(grid3d))
+        std_elev = float(np.std(grid3d))
+        elev_range = max_elev - min_elev
+        
+        max_slope_val = float(np.max(slope_deg_grid))
+        mean_slope_val = float(np.mean(slope_deg_grid))
+        median_slope_val = float(np.median(slope_deg_grid))
+        std_slope_val = float(np.std(slope_deg_grid))
+        
+        area_gt_30 = float(np.mean(slope_deg_grid > 30.0) * 100)
+        area_gt_40 = float(np.mean(slope_deg_grid > 40.0) * 100)
+        area_gt_48 = float(np.mean(slope_deg_grid > 48.0) * 100)
+        
+        mean_tri = float(np.mean(tri_grid))
+        mean_curv = float(np.mean(np.abs(laplacian)))
+        
+        # 5. Multi-Factor Geomorphic Risk Index (0 - 100)
+        f_slope = min(40.0, (mean_slope_val / 30.0) * 20.0 + (area_gt_30 / 20.0) * 10.0 + (area_gt_48 / 4.0) * 10.0)
+        f_relief = min(30.0, (elev_range / 1200.0) * 20.0 + (mean_tri / 15.0) * 10.0)
+        f_highwall = min(20.0, ((max_slope_val - 15.0) / 60.0) * 20.0 if max_slope_val > 15 else 0)
+        f_curv = min(10.0, (mean_curv / 0.005) * 10.0)
+        
+        total_risk_score = round(f_slope + f_relief + f_highwall + f_curv, 1)
+        
+        if total_risk_score >= 70.0 or area_gt_48 >= 6.0:
+            risk_class = "Critical"
+        elif total_risk_score >= 42.0 or area_gt_30 >= 10.0:
+            risk_class = "High"
+        elif total_risk_score >= 22.0 or area_gt_30 >= 3.0:
+            risk_class = "Moderate"
+        else:
+            risk_class = "Low"
+            
+        # Find steepest point location
+        steep_r, steep_c = np.unravel_index(np.argmax(slope_deg_grid), slope_deg_grid.shape)
+        steep_r = int(steep_r)
+        steep_c = int(steep_c)
+        steep_x_norm = (steep_c / (grid_size - 1)) - 0.5
+        steep_y_norm = (steep_r / (grid_size - 1)) - 0.5
+        steep_z_elev = float(grid3d[steep_r, steep_c])
+        
+        steep_point = {
+            "row": steep_r,
+            "col": steep_c,
+            "x_norm": round(steep_x_norm, 4),
+            "y_norm": round(steep_y_norm, 4),
+            "z_elevation": round(steep_z_elev, 1),
+            "slope_deg": round(float(slope_deg_grid[steep_r, steep_c]), 1)
         }
         
-        # Add terrain classification
-        elevation_range = stats["elevation_range"]
-        if elevation_range > 1000:
-            stats["terrain_type"] = "Mountainous"
-            stats["risk_level"] = "High"
-        elif elevation_range > 500:
-            stats["terrain_type"] = "Hilly"
-            stats["risk_level"] = "Moderate to High"
-        elif elevation_range > 100:
-            stats["terrain_type"] = "Rolling"
-            stats["risk_level"] = "Moderate"
+        # Terrain type classification
+        if elev_range > 1000:
+            terrain_type = "Mountainous Open-Pit Complex"
+        elif elev_range > 500:
+            terrain_type = "Deep Quarry / Bench Mine"
+        elif elev_range > 100:
+            terrain_type = "Open-Cast Bench Pit"
         else:
-            stats["terrain_type"] = "Flat"
-            stats["risk_level"] = "Low"
+            terrain_type = "Low-Relief Excavation"
+
+        stats = {
+            "min_elevation": round(min_elev, 1),
+            "max_elevation": round(max_elev, 1),
+            "mean_elevation": round(mean_elev, 1),
+            "std_elevation": round(std_elev, 1),
+            "elevation_range": round(elev_range, 1),
+            "max_slope_deg": round(max_slope_val, 1),
+            "mean_slope_deg": round(mean_slope_val, 1),
+            "median_slope_deg": round(median_slope_val, 1),
+            "std_slope_deg": round(std_slope_val, 1),
+            "slope_area_gt_30": round(area_gt_30, 1),
+            "slope_area_gt_40": round(area_gt_40, 1),
+            "slope_area_gt_48": round(area_gt_48, 1),
+            "roughness_tri": round(mean_tri, 2),
+            "curvature": round(mean_curv, 4),
+            "risk_score": total_risk_score,
+            "risk_level": risk_class,
+            "terrain_type": terrain_type,
+            "steep_point": steep_point
+        }
+
+        mesh3d = {
+            "width": grid_size,
+            "height": grid_size,
+            "cellSizeMeters": round(cell_size_m, 3),
+            "elevations": np.round(grid3d, 2).tolist(),
+            "slopes": np.round(slope_deg_grid, 2).tolist(),
+            "steepPoint": steep_point
+        }
         
         # Create custom colormap: Green (low) → Yellow → Brown → White (high)
         colors_list = [
@@ -1473,8 +1690,8 @@ async def process_dem_file(file_path: Path, dem_id: str):
 Min: {stats["min_elevation"]} m
 Max: {stats["max_elevation"]} m  
 Mean: {stats["mean_elevation"]} m
-Range: {stats["elevation_range"]} m
-Terrain: {stats["terrain_type"]}'''
+Max Slope: {stats.get("max_slope_deg", "N/A")}°
+Risk: {stats.get("risk_level", "N/A")}'''
         
         props = dict(boxstyle='round,pad=0.5', facecolor='black', alpha=0.8, edgecolor='white')
         ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=10,
@@ -1510,6 +1727,8 @@ Terrain: {stats["terrain_type"]}'''
         return {
             "image_url": image_url,
             "statistics": stats,
+            "source_info": source_info,
+            "mesh3d": mesh3d,
             "processing_time": f"{processing_time:.2f}s"
         }
         
