@@ -41,8 +41,11 @@ import threading
 import time
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Resolve paths relative to this file so startup works from any working directory
+backend_root = Path(__file__).resolve().parent  # This is the backend/ directory
+
+# Load environment variables from backend/.env explicitly
+load_dotenv(backend_root / ".env")
 
 # Environment Variables Configuration
 PORT = int(os.getenv("PORT", 8000))
@@ -71,7 +74,6 @@ CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "32"))
 
 # Add backend paths for imports - deployment compatible
-backend_root = Path(__file__).parent  # This is the backend/ directory
 sys.path.append(str(backend_root))
 sys.path.append(str(backend_root / "src"))
 
@@ -598,6 +600,11 @@ async def get_system_status():
         uptime="Running",
         active_connections=len(manager.active_connections)
     )
+
+@app.get("/api/health", response_model=SystemStatus)
+async def get_health_status():
+    """Health check endpoint matching the system status payload."""
+    return await get_system_status()
 
 @app.post("/api/predict-risk", response_model=RiskPrediction)
 async def predict_risk(data: EnvironmentalData):

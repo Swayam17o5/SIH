@@ -1,12 +1,11 @@
-// Simplified API Configuration - Deployed Backend Only
-// No fallback logic, production deployment only
+// Simplified API Configuration - environment-driven backend URLs
 
 // Static configuration from environment variables
 const config = {
-  // Backend URLs (deployed production backend)
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://void-sih25-go5.onrender.com',
-  WS_BASE_URL: import.meta.env.VITE_WS_BASE_URL || 'wss://void-sih25-go5.onrender.com',
-  SSE_BASE_URL: import.meta.env.VITE_SSE_BASE_URL || 'https://void-sih25-go5.onrender.com',
+  // Backend URLs (local development defaults; override via Vite env vars)
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  WS_BASE_URL: import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000',
+  SSE_BASE_URL: import.meta.env.VITE_SSE_BASE_URL || 'http://localhost:8000',
   
   // Application Settings
   APP_TITLE: import.meta.env.VITE_APP_TITLE || 'Rockfall Detection System',
