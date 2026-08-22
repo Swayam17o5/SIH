@@ -1,4 +1,5 @@
 import React from 'react'
+import DemXaiBreakdownCard from '../xai/DemXaiBreakdownCard'
 import {
   Card,
   CardContent,
@@ -374,6 +375,15 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
             </CardContent>
           </Card>
         </motion.div>
+      )}
+
+      {/* XAI 3D DEM Terrain Factor Decomposition & Counterfactual Simulator */}
+      {statistics && (
+        <DemXaiBreakdownCard
+          selectedDEM={selectedFile}
+          riskScore={riskScore}
+          riskLevel={riskLabel}
+        />
       )}
 
       {/* Slope & Elevation Color Scale Legend */}

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import GradCamOverlayCard from '../components/xai/GradCamOverlayCard'
 import {
   Box,
   Card,
@@ -1232,6 +1233,11 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                   </Paper>
                 </Grid>
               </Grid>
+            )}
+
+            {/* XAI Grad-CAM Visual Heatmap Section */}
+            {detectionResults && (
+              <GradCamOverlayCard detection={detectionResults} />
             )}
 
             {import.meta.env.DEV && (inputDiagnostics || detectionResults?.diagnostics) && (
