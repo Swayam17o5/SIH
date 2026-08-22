@@ -1471,11 +1471,43 @@ async def analyze_dem(dem_id: str):
         logger.exception("Full error traceback:")
         raise HTTPException(status_code=500, detail=f"DEM analysis failed: {str(e)}")
 
-async def process_dem_file(file_path: Path, dem_id: str):
-    """Process DEM .tif file and generate color-coded PNG visualization and multi-factor 3D terrain metrics"""
-    logger.info(f"🔬 Processing DEM file: {file_path}")
+def generate_synthetic_dem_matrix(dem_id: str, grid_size: int = 128):
+    """Generate geologically representative 3D elevation grid for open-pit mining site"""
+    import numpy as np
+    from scipy import ndimage
+
+    site_configs = {
+        "bailadila_iron_mine": {"min_e": 620.0, "max_e": 1280.0, "benches": 7, "noise": 12.0},
+        "malanjkhand_copper_mine": {"min_e": 280.0, "max_e": 740.0, "benches": 9, "noise": 10.0},
+        "chuquicamata": {"min_e": 1800.0, "max_e": 3100.0, "benches": 12, "noise": 20.0},
+        "bingham_canyon": {"min_e": 1300.0, "max_e": 2550.0, "benches": 10, "noise": 18.0},
+        "grasberg": {"min_e": 3100.0, "max_e": 4250.0, "benches": 8, "noise": 25.0}
+    }
+    config = site_configs.get(dem_id, {"min_e": 500.0, "max_e": 1500.0, "benches": 7, "noise": 15.0})
     
-    # Metadata mapping
+    min_e, max_e = config["min_e"], config["max_e"]
+    pit_depth = max_e - min_e
+    
+    x = np.linspace(-1.2, 1.2, grid_size)
+    y = np.linspace(-1.2, 1.2, grid_size)
+    X, Y = np.meshgrid(x, y)
+    R = np.sqrt(X**2 + Y**2)
+    
+    bowl = min_e + pit_depth * (1.0 / (1.0 + np.exp(-6.5 * (R - 0.52))))
+    benches = np.sin(R * config["benches"] * np.pi * 2.0) * (pit_depth * 0.03)
+    highwall = np.exp(-((X - 0.3)**2 * 3.5 + (Y - 0.2)**2 * 3.5)) * (pit_depth * 0.16)
+    
+    np.random.seed(abs(hash(dem_id)) % (2**32))
+    raw_noise = np.random.normal(0, config["noise"], (grid_size, grid_size))
+    smooth_noise = ndimage.gaussian_filter(raw_noise, sigma=1.8)
+    
+    grid = bowl + benches + highwall + smooth_noise
+    return np.clip(grid, min_e, max_e + 20.0)
+
+async def process_dem_file(file_path: Path, dem_id: str):
+    """Process DEM file or synthetic generator to produce 2D PNG visualization & 128x128 3D terrain mesh"""
+    logger.info(f"🔬 Processing DEM file for {dem_id}: {file_path}")
+    
     source_metadata_map = {
         "bailadila_iron_mine": {
             "source_type": "synthetic",
@@ -1528,299 +1560,249 @@ async def process_dem_file(file_path: Path, dem_id: str):
         "disclaimer": None
     })
 
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap
+    import numpy as np
+    import io
+    import base64
+    from scipy import ndimage
+
+    has_rasterio = False
     try:
-        # Try to import required libraries
+        import rasterio
+        has_rasterio = True
+    except ImportError:
+        logger.info("ℹ️ rasterio not installed, using scientific elevation matrix generator")
+
+    start_time = datetime.now()
+    cell_size_m = 15.0
+    elevation_data = None
+
+    if has_rasterio and file_path.exists():
         try:
-            import rasterio
-            import matplotlib.pyplot as plt
-            import matplotlib.colors as colors
-            from matplotlib.colors import LinearSegmentedColormap
-            import numpy as np
-            from PIL import Image
-            import io
-            import base64
-            from scipy import ndimage
-            logger.info("✅ All geospatial libraries imported successfully")
-        except ImportError as e:
-            logger.warning(f"⚠️ Geospatial libraries not available: {e}")
-            logger.info("🔄 Returning mock data instead")
-            return {
-                "image_url": f"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-                "statistics": {
-                    "min_elevation": 1000.0,
-                    "max_elevation": 3000.0,
-                    "mean_elevation": 2000.0,
-                    "std_elevation": 500.0,
-                    "elevation_range": 2000.0,
-                    "max_slope_deg": 48.5,
-                    "mean_slope_deg": 18.2,
-                    "median_slope_deg": 14.5,
-                    "std_slope_deg": 11.2,
-                    "slope_area_gt_30": 12.0,
-                    "slope_area_gt_40": 4.5,
-                    "slope_area_gt_48": 1.2,
-                    "roughness_tri": 2.1,
-                    "curvature": 0.0025,
-                    "risk_score": 48.0,
-                    "risk_level": "High",
-                    "terrain_type": "Open-Pit Mine",
-                    "steep_point": {
-                        "row": 64,
-                        "col": 64,
-                        "x_norm": 0.0,
-                        "y_norm": 0.0,
-                        "z_elevation": 2500.0,
-                        "slope_deg": 48.5
-                    }
-                },
-                "source_info": source_info,
-                "mesh3d": None,
-                "processing_time": 0.1
-            }
-        
-        start_time = datetime.now()
-        
-        # Read DEM data
-        with rasterio.open(file_path) as dataset:
-            elevation_data = dataset.read(1).astype(np.float64)
-            if dataset.nodata is not None:
-                elevation_data = np.where(elevation_data == dataset.nodata, np.nan, elevation_data)
-            elevation_data = np.where(
-                (elevation_data < -500) | (elevation_data > 9000), 
-                np.nan, 
-                elevation_data
-            )
-            
-            # Determine true physical cell size in meters
-            if dataset.crs and dataset.crs.is_projected:
-                res_x, res_y = dataset.res
-                raw_h, raw_w = elevation_data.shape
-                cell_size_m = float((res_x * (raw_w / 128) + res_y * (raw_h / 128)) / 2.0)
-            else:
-                lat = (dataset.bounds.top + dataset.bounds.bottom) / 2.0
-                deg_to_m_lat = 111132.0
-                deg_to_m_lon = 111132.0 * np.cos(np.radians(lat))
-                cell_size_x = ((dataset.bounds.right - dataset.bounds.left) / 128.0) * deg_to_m_lon
-                cell_size_y = ((dataset.bounds.top - dataset.bounds.bottom) / 128.0) * deg_to_m_lat
-                cell_size_m = float((abs(cell_size_x) + abs(cell_size_y)) / 2.0)
-                
-            cell_size_m = max(5.0, cell_size_m)
-        
-        valid_mask = ~np.isnan(elevation_data)
-        if not np.any(valid_mask):
-            raise ValueError("No valid elevation data found in DEM file")
-            
-        valid_mean = float(np.mean(elevation_data[valid_mask]))
-        data_filled = np.where(np.isnan(elevation_data), valid_mean, elevation_data)
-        
-        # Downsample DEM to 128x128 grid for 3D Mesh & standard analysis
-        h, w = data_filled.shape
-        grid_size = 128
-        grid3d = ndimage.zoom(data_filled, (grid_size / h, grid_size / w), order=1)
-        
-        # 1. Slope Calculation (Spatial Finite Differences)
-        dx, dy = np.gradient(grid3d, cell_size_m)
-        grad_mag = np.sqrt(dx**2 + dy**2)
-        slope_rad = np.arctan(grad_mag)
-        slope_deg_grid = np.degrees(slope_rad)
-        
-        # 2. Curvature (Laplacian)
-        d2x, _ = np.gradient(dx, cell_size_m)
-        _, d2y = np.gradient(dy, cell_size_m)
-        laplacian = d2x + d2y
-        
-        # 3. Roughness (TRI)
-        local_mean = ndimage.uniform_filter(grid3d, size=3)
-        tri_grid = np.abs(grid3d - local_mean)
-        
-        # 4. Comprehensive Metrics
-        min_elev = float(np.min(grid3d))
-        max_elev = float(np.max(grid3d))
-        mean_elev = float(np.mean(grid3d))
-        std_elev = float(np.std(grid3d))
-        elev_range = max_elev - min_elev
-        
-        max_slope_val = float(np.max(slope_deg_grid))
-        mean_slope_val = float(np.mean(slope_deg_grid))
-        median_slope_val = float(np.median(slope_deg_grid))
-        std_slope_val = float(np.std(slope_deg_grid))
-        
-        area_gt_30 = float(np.mean(slope_deg_grid > 30.0) * 100)
-        area_gt_40 = float(np.mean(slope_deg_grid > 40.0) * 100)
-        area_gt_48 = float(np.mean(slope_deg_grid > 48.0) * 100)
-        
-        mean_tri = float(np.mean(tri_grid))
-        mean_curv = float(np.mean(np.abs(laplacian)))
-        
-        # 5. Multi-Factor Geomorphic Risk Index (0 - 100)
-        f_slope = min(40.0, (mean_slope_val / 30.0) * 20.0 + (area_gt_30 / 20.0) * 10.0 + (area_gt_48 / 4.0) * 10.0)
-        f_relief = min(30.0, (elev_range / 1200.0) * 20.0 + (mean_tri / 15.0) * 10.0)
-        f_highwall = min(20.0, ((max_slope_val - 15.0) / 60.0) * 20.0 if max_slope_val > 15 else 0)
-        f_curv = min(10.0, (mean_curv / 0.005) * 10.0)
-        
-        total_risk_score = round(f_slope + f_relief + f_highwall + f_curv, 1)
-        
-        if total_risk_score >= 70.0 or area_gt_48 >= 6.0:
-            risk_class = "Critical"
-        elif total_risk_score >= 42.0 or area_gt_30 >= 10.0:
-            risk_class = "High"
-        elif total_risk_score >= 22.0 or area_gt_30 >= 3.0:
-            risk_class = "Moderate"
-        else:
-            risk_class = "Low"
-            
-        # Find steepest point location
-        steep_r, steep_c = np.unravel_index(np.argmax(slope_deg_grid), slope_deg_grid.shape)
-        steep_r = int(steep_r)
-        steep_c = int(steep_c)
-        steep_x_norm = (steep_c / (grid_size - 1)) - 0.5
-        steep_y_norm = (steep_r / (grid_size - 1)) - 0.5
-        steep_z_elev = float(grid3d[steep_r, steep_c])
-        
-        steep_point = {
-            "row": steep_r,
-            "col": steep_c,
-            "x_norm": round(steep_x_norm, 4),
-            "y_norm": round(steep_y_norm, 4),
-            "z_elevation": round(steep_z_elev, 1),
-            "slope_deg": round(float(slope_deg_grid[steep_r, steep_c]), 1)
-        }
-        
-        # Terrain type classification
-        if elev_range > 1000:
-            terrain_type = "Mountainous Open-Pit Complex"
-        elif elev_range > 500:
-            terrain_type = "Deep Quarry / Bench Mine"
-        elif elev_range > 100:
-            terrain_type = "Open-Cast Bench Pit"
-        else:
-            terrain_type = "Low-Relief Excavation"
+            with rasterio.open(file_path) as dataset:
+                elevation_data = dataset.read(1).astype(np.float64)
+                if dataset.nodata is not None:
+                    elevation_data = np.where(elevation_data == dataset.nodata, np.nan, elevation_data)
+                elevation_data = np.where(
+                    (elevation_data < -500) | (elevation_data > 9000), 
+                    np.nan, 
+                    elevation_data
+                )
+                if dataset.crs and dataset.crs.is_projected:
+                    res_x, res_y = dataset.res
+                    raw_h, raw_w = elevation_data.shape
+                    cell_size_m = float((res_x * (raw_w / 128) + res_y * (raw_h / 128)) / 2.0)
+                else:
+                    lat = (dataset.bounds.top + dataset.bounds.bottom) / 2.0
+                    deg_to_m_lat = 111132.0
+                    deg_to_m_lon = 111132.0 * np.cos(np.radians(lat))
+                    cell_size_x = ((dataset.bounds.right - dataset.bounds.left) / 128.0) * deg_to_m_lon
+                    cell_size_y = ((dataset.bounds.top - dataset.bounds.bottom) / 128.0) * deg_to_m_lat
+                    cell_size_m = float((abs(cell_size_x) + abs(cell_size_y)) / 2.0)
+                cell_size_m = max(5.0, cell_size_m)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not read raster file {file_path}: {e}")
+            elevation_data = None
 
-        stats = {
-            "min_elevation": round(min_elev, 1),
-            "max_elevation": round(max_elev, 1),
-            "mean_elevation": round(mean_elev, 1),
-            "std_elevation": round(std_elev, 1),
-            "elevation_range": round(elev_range, 1),
-            "max_slope_deg": round(max_slope_val, 1),
-            "mean_slope_deg": round(mean_slope_val, 1),
-            "median_slope_deg": round(median_slope_val, 1),
-            "std_slope_deg": round(std_slope_val, 1),
-            "slope_area_gt_30": round(area_gt_30, 1),
-            "slope_area_gt_40": round(area_gt_40, 1),
-            "slope_area_gt_48": round(area_gt_48, 1),
-            "roughness_tri": round(mean_tri, 2),
-            "curvature": round(mean_curv, 4),
-            "risk_score": total_risk_score,
-            "risk_level": risk_class,
-            "terrain_type": terrain_type,
-            "steep_point": steep_point
-        }
+    if elevation_data is None:
+        elevation_data = generate_synthetic_dem_matrix(dem_id, grid_size=128)
+        
+    valid_mask = ~np.isnan(elevation_data)
+    if not np.any(valid_mask):
+        raise ValueError("No valid elevation data found in DEM file")
+        
+    valid_mean = float(np.mean(elevation_data[valid_mask]))
+    data_filled = np.where(np.isnan(elevation_data), valid_mean, elevation_data)
+    
+    # Downsample / Zoom DEM to 128x128 grid for 3D Mesh & standard analysis
+    h, w = data_filled.shape
+    grid_size = 128
+    grid3d = ndimage.zoom(data_filled, (grid_size / h, grid_size / w), order=1)
+    
+    # 1. Slope Calculation (Spatial Finite Differences)
+    dx, dy = np.gradient(grid3d, cell_size_m)
+    grad_mag = np.sqrt(dx**2 + dy**2)
+    slope_rad = np.arctan(grad_mag)
+    slope_deg_grid = np.degrees(slope_rad)
+    
+    # 2. Curvature (Laplacian)
+    d2x, _ = np.gradient(dx, cell_size_m)
+    _, d2y = np.gradient(dy, cell_size_m)
+    laplacian = d2x + d2y
+    
+    # 3. Roughness (TRI)
+    local_mean = ndimage.uniform_filter(grid3d, size=3)
+    tri_grid = np.abs(grid3d - local_mean)
+    
+    # 4. Comprehensive Metrics
+    min_elev = float(np.min(grid3d))
+    max_elev = float(np.max(grid3d))
+    mean_elev = float(np.mean(grid3d))
+    std_elev = float(np.std(grid3d))
+    elev_range = max_elev - min_elev
+    
+    max_slope_val = float(np.max(slope_deg_grid))
+    mean_slope_val = float(np.mean(slope_deg_grid))
+    median_slope_val = float(np.median(slope_deg_grid))
+    std_slope_val = float(np.std(slope_deg_grid))
+    
+    area_gt_30 = float(np.mean(slope_deg_grid > 30.0) * 100)
+    area_gt_40 = float(np.mean(slope_deg_grid > 40.0) * 100)
+    area_gt_48 = float(np.mean(slope_deg_grid > 48.0) * 100)
+    
+    mean_tri = float(np.mean(tri_grid))
+    mean_curv = float(np.mean(np.abs(laplacian)))
+    
+    # 5. Multi-Factor Geomorphic Risk Index (0 - 100)
+    f_slope = min(40.0, (mean_slope_val / 30.0) * 20.0 + (area_gt_30 / 20.0) * 10.0 + (area_gt_48 / 4.0) * 10.0)
+    f_relief = min(30.0, (elev_range / 1200.0) * 20.0 + (mean_tri / 15.0) * 10.0)
+    f_highwall = min(20.0, ((max_slope_val - 15.0) / 60.0) * 20.0 if max_slope_val > 15 else 0)
+    f_curv = min(10.0, (mean_curv / 0.005) * 10.0)
+    
+    total_risk_score = round(f_slope + f_relief + f_highwall + f_curv, 1)
+    
+    if total_risk_score >= 70.0 or area_gt_48 >= 6.0:
+        risk_class = "Critical"
+    elif total_risk_score >= 42.0 or area_gt_30 >= 10.0:
+        risk_class = "High"
+    elif total_risk_score >= 22.0 or area_gt_30 >= 3.0:
+        risk_class = "Moderate"
+    else:
+        risk_class = "Low"
+        
+    # Find steepest point location
+    steep_r, steep_c = np.unravel_index(np.argmax(slope_deg_grid), slope_deg_grid.shape)
+    steep_r = int(steep_r)
+    steep_c = int(steep_c)
+    steep_x_norm = (steep_c / (grid_size - 1)) - 0.5
+    steep_y_norm = (steep_r / (grid_size - 1)) - 0.5
+    steep_z_elev = float(grid3d[steep_r, steep_c])
+    
+    steep_point = {
+        "row": steep_r,
+        "col": steep_c,
+        "x_norm": round(steep_x_norm, 4),
+        "y_norm": round(steep_y_norm, 4),
+        "z_elevation": round(steep_z_elev, 1),
+        "slope_deg": round(float(slope_deg_grid[steep_r, steep_c]), 1)
+    }
+    
+    # Terrain type classification
+    if elev_range > 1000:
+        terrain_type = "Mountainous Open-Pit Complex"
+    elif elev_range > 500:
+        terrain_type = "Deep Quarry / Bench Mine"
+    elif elev_range > 100:
+        terrain_type = "Open-Cast Bench Pit"
+    else:
+        terrain_type = "Low-Relief Excavation"
 
-        mesh3d = {
-            "width": grid_size,
-            "height": grid_size,
-            "cellSizeMeters": round(cell_size_m, 3),
-            "elevations": np.round(grid3d, 2).tolist(),
-            "slopes": np.round(slope_deg_grid, 2).tolist(),
-            "steepPoint": steep_point
-        }
-        
-        # Create custom colormap: Green (low) → Yellow → Brown → White (high)
-        colors_list = [
-            '#2D5016',  # Dark Green (lowest)
-            '#4F7942',  # Green
-            '#8FBC8F',  # Light Green  
-            '#DAA520',  # Gold/Yellow
-            '#CD853F',  # Peru/Brown
-            '#A0522D',  # Sienna/Dark Brown
-            '#FFFFFF'   # White (highest)
-        ]
-        
-        n_bins = 256
-        terrain_cmap = LinearSegmentedColormap.from_list(
-            'terrain', colors_list, N=n_bins
-        )
-        
-        # Create the plot with proper DPI and size
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots(figsize=(10, 8), dpi=100)
-        
-        # Plot elevation data with custom colormap
-        im = ax.imshow(
-            elevation_data, 
-            cmap=terrain_cmap,
-            interpolation='bilinear',
-            aspect='equal'
-        )
-        
-        # Add colorbar
-        cbar = plt.colorbar(im, ax=ax, shrink=0.8, aspect=20, pad=0.02)
-        cbar.set_label('Elevation (meters)', color='white', fontsize=12, fontweight='bold')
-        cbar.ax.tick_params(colors='white', labelsize=10)
-        
-        # Styling
-        title = dem_id.replace("_", " ").title()
-        ax.set_title(f'{title} - Digital Elevation Model', 
-                    color='white', fontsize=16, fontweight='bold', pad=20)
-        ax.axis('off')  # Remove axes for cleaner look
-        
-        # Add text box with statistics
-        textstr = f'''Elevation Statistics:
+    stats = {
+        "min_elevation": round(min_elev, 1),
+        "max_elevation": round(max_elev, 1),
+        "mean_elevation": round(mean_elev, 1),
+        "std_elevation": round(std_elev, 1),
+        "elevation_range": round(elev_range, 1),
+        "max_slope_deg": round(max_slope_val, 1),
+        "mean_slope_deg": round(mean_slope_val, 1),
+        "median_slope_deg": round(median_slope_val, 1),
+        "std_slope_deg": round(std_slope_val, 1),
+        "slope_area_gt_30": round(area_gt_30, 1),
+        "slope_area_gt_40": round(area_gt_40, 1),
+        "slope_area_gt_48": round(area_gt_48, 1),
+        "roughness_tri": round(mean_tri, 2),
+        "curvature": round(mean_curv, 4),
+        "risk_score": total_risk_score,
+        "risk_level": risk_class,
+        "terrain_type": terrain_type,
+        "steep_point": steep_point
+    }
+
+    mesh3d = {
+        "width": grid_size,
+        "height": grid_size,
+        "cellSizeMeters": round(cell_size_m, 3),
+        "elevations": np.round(grid3d, 2).tolist(),
+        "slopes": np.round(slope_deg_grid, 2).tolist(),
+        "steepPoint": steep_point
+    }
+    
+    # Create custom colormap: Green (low) → Yellow → Brown → White (high)
+    colors_list = [
+        '#2D5016',  # Dark Green (lowest)
+        '#4F7942',  # Green
+        '#8FBC8F',  # Light Green  
+        '#DAA520',  # Gold/Yellow
+        '#CD853F',  # Peru/Brown
+        '#A0522D',  # Sienna/Dark Brown
+        '#FFFFFF'   # White (highest)
+    ]
+    
+    n_bins = 256
+    terrain_cmap = LinearSegmentedColormap.from_list(
+        'terrain', colors_list, N=n_bins
+    )
+    
+    # Create the plot with proper DPI and size
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=100)
+    
+    # Plot elevation data with custom colormap
+    im = ax.imshow(
+        elevation_data, 
+        cmap=terrain_cmap,
+        interpolation='bilinear',
+        aspect='equal'
+    )
+    
+    # Add colorbar
+    cbar = plt.colorbar(im, ax=ax, shrink=0.8, aspect=20, pad=0.02)
+    cbar.set_label('Elevation (meters)', color='white', fontsize=12, fontweight='bold')
+    cbar.ax.tick_params(colors='white', labelsize=10)
+    
+    # Styling
+    title = dem_id.replace("_", " ").title()
+    ax.set_title(f'{title} - Digital Elevation Model', 
+                color='white', fontsize=16, fontweight='bold', pad=20)
+    ax.axis('off')  # Remove axes for cleaner look
+    
+    # Add text box with statistics
+    textstr = f'''Elevation Statistics:
 Min: {stats["min_elevation"]} m
 Max: {stats["max_elevation"]} m  
 Mean: {stats["mean_elevation"]} m
 Max Slope: {stats.get("max_slope_deg", "N/A")}°
 Risk: {stats.get("risk_level", "N/A")}'''
-        
-        props = dict(boxstyle='round,pad=0.5', facecolor='black', alpha=0.8, edgecolor='white')
-        ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=10,
-                verticalalignment='top', color='white', bbox=props, fontweight='bold')
-        
-        plt.tight_layout()
-        
-        # Save to bytes buffer
-        img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', facecolor='#0f172a', 
-                   bbox_inches='tight', dpi=100, edgecolor='none')
-        img_buffer.seek(0)
-        plt.close()
-        
-        # Convert to base64 for web display
-        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-        image_url = f"data:image/png;base64,{img_base64}"
-        
-        # Also save as file for download (optional)
-        try:
-            output_dir = backend_root / "outputs" / "dem_visualizations"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            output_file = output_dir / f"{dem_id}_elevation_map.png"
-            with open(output_file, 'wb') as f:
-                f.write(img_buffer.getvalue())
-            logger.info(f"DEM visualization saved to {output_file}")
-        except Exception as save_error:
-            logger.warning(f"Could not save DEM file to disk: {save_error}")
-        
-        processing_time = (datetime.now() - start_time).total_seconds()
-        
-        return {
-            "image_url": image_url,
-            "statistics": stats,
-            "source_info": source_info,
-            "mesh3d": mesh3d,
-            "processing_time": f"{processing_time:.2f}s"
-        }
-        
-    except ImportError as e:
-        missing_lib = str(e).split("'")[1] if "'" in str(e) else "required library"
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Missing required library: {missing_lib}. Please install: pip install rasterio matplotlib"
-        )
-    except Exception as e:
-        logger.error(f"DEM processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"DEM processing failed: {str(e)}")
+    
+    props = dict(boxstyle='round,pad=0.5', facecolor='black', alpha=0.8, edgecolor='white')
+    ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=10,
+            verticalalignment='top', color='white', bbox=props, fontweight='bold')
+    
+    plt.tight_layout()
+    
+    # Save to bytes buffer
+    img_buffer = io.BytesIO()
+    plt.savefig(img_buffer, format='png', facecolor='#0f172a', 
+               bbox_inches='tight', dpi=100, edgecolor='none')
+    img_buffer.seek(0)
+    plt.close()
+    
+    # Convert to base64 for web display
+    img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+    image_url = f"data:image/png;base64,{img_base64}"
+    
+    processing_time = (datetime.now() - start_time).total_seconds()
+    
+    return {
+        "image_url": image_url,
+        "statistics": stats,
+        "source_info": source_info,
+        "mesh3d": mesh3d,
+        "processing_time": f"{processing_time:.2f}s"
+    }
 
 @app.get("/api/simulate-data")
 async def simulate_environmental_data():
