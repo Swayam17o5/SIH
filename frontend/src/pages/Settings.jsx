@@ -201,19 +201,19 @@ const Settings = () => {
   
   const getStatusColor = (status) => {
     switch (status) {
-      case 'loaded': return '#10b981'
-      case 'loading': return '#f59e0b'
-      case 'error': return '#ef4444'
-      default: return '#6b7280'
+      case 'loaded': return 'var(--status-success)'
+      case 'loading': return 'var(--status-warning)'
+      case 'error': return 'var(--status-danger)'
+      default: return 'text.secondary'
     }
   }
   
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'loaded': return <CheckIcon sx={{ color: '#10b981' }} />
-      case 'loading': return <UpdateIcon sx={{ color: '#f59e0b' }} />
-      case 'error': return <ErrorIcon sx={{ color: '#ef4444' }} />
-      default: return <MemoryIcon sx={{ color: '#6b7280' }} />
+      case 'loaded': return <CheckIcon color="success" />
+      case 'loading': return <UpdateIcon color="warning" />
+      case 'error': return <ErrorIcon color="error" />
+      default: return <MemoryIcon color="action" />
     }
   }
   
@@ -267,14 +267,14 @@ const Settings = () => {
                           <Box sx={{ 
                             width: '100%', 
                             height: 8, 
-                            backgroundColor: '#334155', 
+                            backgroundColor: 'var(--border-primary)', 
                             borderRadius: 4,
                             overflow: 'hidden'
                           }}>
                             <Box sx={{ 
                               width: `${systemInfo.memory_usage}%`, 
                               height: '100%', 
-                              backgroundColor: systemInfo.memory_usage > 80 ? '#ef4444' : '#3b82f6',
+                              backgroundColor: systemInfo.memory_usage > 80 ? 'error.main' : 'primary.main',
                               transition: 'width 0.3s ease'
                             }} />
                           </Box>
@@ -293,14 +293,14 @@ const Settings = () => {
                           <Box sx={{ 
                             width: '100%', 
                             height: 8, 
-                            backgroundColor: '#334155', 
+                            backgroundColor: 'var(--border-primary)', 
                             borderRadius: 4,
                             overflow: 'hidden'
                           }}>
                             <Box sx={{ 
                               width: `${systemInfo.storage_usage}%`, 
                               height: '100%', 
-                              backgroundColor: systemInfo.storage_usage > 80 ? '#ef4444' : '#10b981',
+                              backgroundColor: systemInfo.storage_usage > 80 ? 'error.main' : 'success.main',
                               transition: 'width 0.3s ease'
                             }} />
                           </Box>
@@ -348,7 +348,7 @@ const Settings = () => {
             <Card className="glass-card" sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" component="div" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-                  <NotificationsIcon sx={{ mr: 1, color: '#3b82f6' }} />
+                  <NotificationsIcon sx={{ mr: 1, color: 'primary.main' }} />
                   Notification Settings
                 </Typography>
                 
@@ -409,7 +409,7 @@ const Settings = () => {
                       step={0.1}
                       valueLabelDisplay="auto"
                       valueLabelFormat={(value) => `${(value * 100).toFixed(0)}%`}
-                      sx={{ color: '#3b82f6' }}
+                      color="primary"
                     />
                   </Grid>
                 </Grid>
@@ -420,7 +420,7 @@ const Settings = () => {
             <Card className="glass-card" sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" component="div" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-                  <SecurityIcon sx={{ mr: 1, color: '#8b5cf6' }} />
+                  <SecurityIcon sx={{ mr: 1, color: 'secondary.main' }} />
                   Detection Settings
                 </Typography>
                 
@@ -437,7 +437,7 @@ const Settings = () => {
                       step={0.05}
                       valueLabelDisplay="auto"
                       valueLabelFormat={(value) => `${(value * 100).toFixed(0)}%`}
-                      sx={{ color: '#8b5cf6' }}
+                      color="secondary"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -480,7 +480,7 @@ const Settings = () => {
             <Card className="glass-card" sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" component="div" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-                  <MemoryIcon sx={{ mr: 1, color: '#10b981' }} />
+                  <MemoryIcon sx={{ mr: 1, color: 'success.main' }} />
                   System Settings
                 </Typography>
                 

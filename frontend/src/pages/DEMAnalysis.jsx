@@ -160,7 +160,7 @@ const DEMAnalysis = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', p: { xs: 2, md: 3 } }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', color: 'white', p: { xs: 2, md: 3 } }}>
       {/* Header Banner */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -169,12 +169,12 @@ const DEMAnalysis = () => {
       >
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 1 }}>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <span>🏔️</span> 3D Digital Elevation Model (DEM) Analysis
             </Typography>
             <DemViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </Box>
-          <Typography variant="body1" sx={{ color: '#94a3b8' }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
             Client-side interactive 3D terrain mesh viewer with multi-factor geomorphological risk assessment & slope hazard detection.
           </Typography>
         </Box>
@@ -186,24 +186,24 @@ const DEMAnalysis = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.4 }}
       >
-        <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155', mb: 3 }}>
+        <Card sx={{ mb: 3 }}>
           <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={5}>
                 <FormControl fullWidth size="small">
-                  <InputLabel sx={{ color: '#94a3b8' }}>Select DEM Mining Site</InputLabel>
+                  <InputLabel sx={{ color: 'text.secondary' }}>Select DEM Mining Site</InputLabel>
                   <Select
                     value={selectedDEM}
-                    onChange={handleDEMChange}
                     label="Select DEM Mining Site"
+                    onChange={(e) => handleDEMChange(e.target.value)}
                     sx={{
                       color: 'white',
-                      backgroundColor: '#0f172a',
+                      backgroundColor: 'background.default',
                       '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#334155'
+                        borderColor: 'var(--border-primary)'
                       },
                       '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#3b82f6'
+                        borderColor: 'primary.main'
                       }
                     }}
                   >
@@ -226,9 +226,9 @@ const DEMAnalysis = () => {
                               ml: 1.5,
                               fontSize: '0.68rem',
                               height: 20,
-                              backgroundColor: file.is_real_data ? 'rgba(59, 130, 246, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                              color: file.is_real_data ? '#60a5fa' : '#eab308',
-                              border: `1px solid ${file.is_real_data ? '#60a5fa40' : '#eab30840'}`
+                              backgroundColor: file.is_real_data ? 'rgba(13, 148, 136, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                              color: file.is_real_data ? 'secondary.main' : 'warning.main',
+                              border: '1px solid currentColor'
                             }}
                           />
                         </Box>
@@ -246,7 +246,7 @@ const DEMAnalysis = () => {
                     startIcon={<RefreshIcon />}
                     onClick={fetchDEMData}
                     disabled={!selectedDEM || loading}
-                    sx={{ color: '#3b82f6', borderColor: '#334155', '&:hover': { borderColor: '#3b82f6' } }}
+                    sx={{ color: 'primary.main', borderColor: 'var(--border-primary)', '&:hover': { borderColor: 'primary.main', backgroundColor: 'rgba(234, 88, 12, 0.08)' } }}
                   >
                     Reload
                   </Button>
@@ -256,7 +256,7 @@ const DEMAnalysis = () => {
                     startIcon={<DownloadIcon />}
                     onClick={handleDownload}
                     disabled={!demData}
-                    sx={{ color: '#10b981', borderColor: '#334155', '&:hover': { borderColor: '#10b981' } }}
+                    sx={{ color: 'success.main', borderColor: 'var(--border-primary)', '&:hover': { borderColor: 'success.main', backgroundColor: 'rgba(13, 148, 136, 0.08)' } }}
                   >
                     Export 2D Map
                   </Button>
@@ -289,7 +289,7 @@ const DEMAnalysis = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, duration: 0.4 }}
           >
-            <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155', minHeight: 600 }}>
+            <Card sx={{ minHeight: 600 }}>
               <CardContent sx={{ p: 2 }}>
                 {/* Header inside viewer card */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -303,20 +303,20 @@ const DEMAnalysis = () => {
                         size="small"
                         variant="outlined"
                         onClick={handleZoomOut}
-                        sx={{ minWidth: 36, px: 1, color: '#94a3b8', borderColor: '#334155' }}
+                        sx={{ minWidth: 36, px: 1, color: 'text.secondary', borderColor: 'var(--border-primary)' }}
                       >
                         <ZoomOutIcon fontSize="small" />
                       </Button>
                       <Chip
                         label={`${Math.round(zoomLevel * 100)}%`}
                         size="small"
-                        sx={{ backgroundColor: '#334155', color: 'white' }}
+                        sx={{ backgroundColor: 'var(--border-primary)', color: 'text.primary' }}
                       />
                       <Button
                         size="small"
                         variant="outlined"
                         onClick={handleZoomIn}
-                        sx={{ minWidth: 36, px: 1, color: '#94a3b8', borderColor: '#334155' }}
+                        sx={{ minWidth: 36, px: 1, color: 'text.secondary', borderColor: 'var(--border-primary)' }}
                       >
                         <ZoomInIcon fontSize="small" />
                       </Button>
@@ -329,7 +329,7 @@ const DEMAnalysis = () => {
                   sx={{
                     width: '100%',
                     height: 540,
-                    backgroundColor: '#0a0f1d',
+                    backgroundColor: 'background.default',
                     borderRadius: 2,
                     display: 'flex',
                     alignItems: 'center',
@@ -340,8 +340,8 @@ const DEMAnalysis = () => {
                 >
                   {loading && (
                     <Box sx={{ textAlign: 'center' }}>
-                      <CircularProgress sx={{ color: '#3b82f6', mb: 2 }} />
-                      <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                      <CircularProgress sx={{ color: 'primary.main', mb: 2 }} />
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         Processing DEM grid & calculating multi-factor slopes...
                       </Typography>
                     </Box>

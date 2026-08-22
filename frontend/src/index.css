@@ -1,4 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+:root {
+  /* Color Palette */
+  --bg-primary: #050708;          /* Primary Dark Obsidian */
+  --bg-secondary: #0b1215;        /* Subterranean Instrument Panel */
+  --border-primary: #263338;      /* Technical Bezel Border */
+  --border-secondary: #314047;    /* Active Border Highlight */
+  
+  --accent-primary: #42c9d0;      /* AI Mineral Teal/Turquoise */
+  --accent-secondary: #6fe0dd;    /* Light Turquoise */
+  
+  /* Geological Status/Hazard States */
+  --status-success: #42c9d0;      /* Cool Stable Turquoise */
+  --status-warning: #ffb020;      /* Amber / Moderate */
+  --status-orange: #ff6f2b;       /* Orange / High */
+  --status-danger: #d84620;       /* Red / Critical */
+  
+  /* Typography & Bezel Shadows */
+  --font-sans: 'Outfit', 'Inter', -apple-system, sans-serif;
+  --font-mono: 'Space Mono', 'JetBrains Mono', monospace;
+  --shadow-card: 0 10px 40px rgba(0, 0, 0, 0.75);
+  --border-radius: 4px;
+}
 
 * {
   margin: 0;
@@ -7,11 +30,27 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background-color: var(--bg-primary);
+  background-image: radial-gradient(circle at center, rgba(11, 18, 21, 0.2) 0%, var(--bg-primary) 95%), url('/images/topo_pattern.png');
+  background-repeat: repeat;
+  background-size: 800px 800px;
+  animation: tectonicDrift 200s infinite linear;
   min-height: 100vh;
+}
+
+@keyframes tectonicDrift {
+  0% {
+    background-position: center center, 0px 0px;
+  }
+  50% {
+    background-position: center center, 60px 40px;
+  }
+  100% {
+    background-position: center center, 0px 0px;
+  }
 }
 
 #root {
@@ -69,16 +108,25 @@ body {
   }
 }
 
-@keyframes bounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-10px);
-  }
-  60% {
-    transform: translateY(-5px);
-  }
+@keyframes scanLineMove {
+  0% { top: 0%; }
+  50% { top: 100%; }
+  100% { top: 0%; }
+}
+
+@keyframes radarSweep {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(45deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes raindropFall {
+  0% { transform: translateY(-10px) translateX(0); opacity: 0.8; }
+  100% { transform: translateY(120px) translateX(-30px); opacity: 0; }
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
 }
 
 /* Utility classes */
@@ -130,9 +178,35 @@ body {
 
 /* Custom card styles */
 .glass-card {
-  background: rgba(30, 41, 59, 0.7) !important;
-  backdrop-filter: blur(10px) !important;
-  border: 1px solid rgba(51, 65, 85, 0.3) !important;
+  position: relative;
+  background: rgba(13, 20, 38, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(71, 85, 105, 0.5) !important;
+  overflow: visible !important;
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid #06b6d4;
+  border-left: 2px solid #06b6d4;
+  pointer-events: none;
+}
+
+.glass-card::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-bottom: 2px solid #06b6d4;
+  border-right: 2px solid #06b6d4;
+  pointer-events: none;
 }
 
 .gradient-border {
@@ -239,4 +313,124 @@ body {
   .no-print {
     display: none !important;
   }
+}
+
+/* RockGuard AI Design System */
+.geological-grid {
+  background-color: transparent;
+  background-image: 
+    radial-gradient(rgba(111, 224, 221, 0.015) 1.2px, transparent 1.2px),
+    linear-gradient(rgba(38, 51, 56, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 51, 56, 0.02) 1px, transparent 1px);
+  background-size: 24px 24px, 48px 48px, 48px 48px;
+  position: relative;
+  min-height: 100vh;
+}
+
+.contour-bg {
+  background-color: rgba(11, 18, 21, 0.96) !important;
+  background-image: radial-gradient(circle at top right, rgba(66, 201, 208, 0.03) 0%, transparent 80%), url('/images/topo_pattern.png');
+  background-size: cover;
+  border-right: 1px solid var(--border-primary) !important;
+  box-shadow: inset -5px 0 20px rgba(0, 0, 0, 0.4);
+}
+
+.hud-card, .glass-card {
+  position: relative !important;
+  background: rgba(11, 18, 21, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.01),
+    inset 0 0 10px rgba(111, 224, 221, 0.01),
+    var(--shadow-card) !important;
+  border-radius: var(--border-radius) !important;
+  overflow: hidden !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.hud-card:hover, .glass-card:hover {
+  border-color: var(--border-secondary) !important;
+  box-shadow: 
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.03),
+    inset 0 0 16px rgba(111, 224, 221, 0.02),
+    0 16px 48px rgba(0, 0, 0, 0.8) !important;
+  transform: translateY(-1px);
+}
+
+/* AI Alert & Warning Glow animations */
+@keyframes activeCriticalPulse {
+  0%, 100% { 
+    border-color: rgba(216, 70, 32, 0.35) !important; 
+    box-shadow: inset 0 0 8px rgba(216, 70, 32, 0.03), var(--shadow-card) !important; 
+  }
+  50% { 
+    border-color: rgba(216, 70, 32, 0.8) !important; 
+    box-shadow: inset 0 0 18px rgba(216, 70, 32, 0.15), var(--shadow-card) !important; 
+  }
+}
+
+@keyframes activeWarningPulse {
+  0%, 100% { 
+    border-color: rgba(255, 176, 32, 0.25) !important; 
+    box-shadow: inset 0 0 8px rgba(255, 176, 32, 0.02), var(--shadow-card) !important; 
+  }
+  50% { 
+    border-color: rgba(255, 176, 32, 0.75) !important; 
+    box-shadow: inset 0 0 14px rgba(255, 176, 32, 0.12), var(--shadow-card) !important; 
+  }
+}
+
+/* Color indicators using clean side borders & animations for active danger */
+.hud-card.hud-success, .glass-card.hud-success {
+  border-left: 4px solid var(--status-success) !important;
+}
+
+.hud-card.hud-warning, .glass-card.hud-warning {
+  border-left: 4px solid var(--status-orange) !important;
+  animation: activeWarningPulse 3s infinite ease-in-out !important;
+}
+
+.hud-card.hud-danger, .glass-card.hud-danger {
+  border-left: 4px solid var(--status-danger) !important;
+  animation: activeCriticalPulse 2s infinite ease-in-out !important;
+}
+
+.hazard-border {
+  height: 2px;
+  background: linear-gradient(90deg, var(--border-primary) 0%, var(--accent-primary) 50%, var(--border-primary) 100%);
+  width: 100%;
+}
+
+.scanline {
+  display: none !important;
+}
+
+.neon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background-color: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.telemetry-grid-bg {
+  position: relative;
+}
+
+.telemetry-grid-bg::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(111, 224, 221, 0.005) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(111, 224, 221, 0.005) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
 }

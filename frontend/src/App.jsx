@@ -18,7 +18,8 @@ import {
   Badge,
   Chip,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Button
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -46,7 +47,7 @@ import DEMAnalysis from './pages/DEMAnalysis'
 // WebSocket hook for real-time updates
 import useWebSocket from './hooks/useWebSocket'
 
-const drawerWidth = 280
+const drawerWidth = 0
 
 function App() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -71,40 +72,40 @@ function App() {
   // Navigation items
   const navigationItems = [
     {
-      text: 'Dashboard',
+      text: 'Overview',
       icon: <DashboardIcon />,
       path: 'dashboard',
-      color: '#3b82f6'
+      color: 'var(--accent-primary)'
     },
     {
       text: 'Live Monitoring',
       icon: <VideocamIcon />,
       path: 'live-monitoring',
-      color: '#ef4444'
+      color: 'var(--accent-primary)'
     },
     {
-      text: 'DEM Analysis',
+      text: 'Risk Map',
       icon: <TerrainIcon />,
       path: 'dem-analysis',
-      color: '#10b981'
+      color: 'var(--accent-primary)'
     },
     {
-      text: 'Rock Detection',
+      text: 'AI Prediction',
       icon: <CameraIcon />,
       path: 'detection',
-      color: '#8b5cf6'
+      color: 'var(--accent-primary)'
     },
     {
-      text: 'Risk Assessment',
+      text: 'Analytics',
       icon: <AssessmentIcon />,
       path: 'risk-assessment',
-      color: '#f59e0b'
+      color: 'var(--accent-primary)'
     },
     {
       text: 'Settings',
       icon: <SettingsIcon />,
       path: 'settings',
-      color: '#6b7280'
+      color: 'var(--accent-primary)'
     }
   ]
   
@@ -188,38 +189,37 @@ function App() {
   
   // Drawer content
   const drawerContent = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box className="contour-bg" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <Box sx={{ p: 3, borderBottom: '1px solid #334155' }}>
-        <Typography variant="h5" component="div" sx={{ 
-          fontWeight: 700,
-          background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-          backgroundClip: 'text',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          mb: 1
+      <Box sx={{ p: 3, borderBottom: '1px solid var(--border-primary)' }}>
+        <Typography variant="h6" component="div" sx={{ 
+          fontWeight: 900,
+          color: '#f8fafc',
+          mb: 0.5,
+          letterSpacing: '0.5px',
+          fontFamily: 'var(--font-sans)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
         }}>
-          🏔️ Rockfall AI
+          ROCKGUARD AI
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Detection & Prediction System
+        <Typography variant="caption" sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', fontSize: '0.62rem', display: 'block', mb: 1.5, letterSpacing: '1px' }}>
+          MINE INTELLIGENCE
         </Typography>
+        <div className="hazard-border" />
       </Box>
       
       {/* System Status */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #334155' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          {getConnectionIcon()}
-          <Typography variant="body2" color="text.secondary">
-            {connectionStatus}
-          </Typography>
+      <Box sx={{ p: 2, display: { xs: 'none', md: 'block' } }}>
+        <Box sx={{ p: 1.5, borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'background.default' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <span className="neon-dot" style={{ color: connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)' }} />
+            <Typography variant="caption" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+              {connectionStatus === 'Connected' ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'}
+            </Typography>
+          </Box>
         </Box>
-        <Chip 
-          label={systemStatus.status}
-          color={getStatusColor(systemStatus.status)}
-          size="small"
-          sx={{ fontSize: '0.75rem' }}
-        />
       </Box>
       
       {/* Navigation */}
@@ -234,18 +234,21 @@ function App() {
               }}
               sx={{
                 mx: 1,
-                borderRadius: 2,
+                borderRadius: '4px',
                 mb: 0.5,
+                borderLeft: currentPage === item.path ? '3px solid var(--accent-primary)' : '3px solid transparent',
+                backgroundColor: currentPage === item.path ? 'rgba(66, 201, 208, 0.04) !important' : 'transparent',
+                transition: 'all 0.2s ease',
                 '&.Mui-selected': {
-                  backgroundColor: `${item.color}20`,
+                  backgroundColor: 'rgba(66, 201, 208, 0.05) !important',
                   '&:hover': {
-                    backgroundColor: `${item.color}30`,
+                    backgroundColor: 'rgba(66, 201, 208, 0.08) !important',
                   }
                 }
               }}
             >
               <ListItemIcon sx={{ 
-                color: currentPage === item.path ? item.color : 'text.secondary',
+                color: currentPage === item.path ? 'primary.main' : 'text.secondary',
                 minWidth: 40 
               }}>
                 {item.icon}
@@ -253,9 +256,11 @@ function App() {
               <ListItemText 
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: '0.9rem',
-                  fontWeight: currentPage === item.path ? 600 : 400,
-                  color: currentPage === item.path ? item.color : 'text.primary'
+                  fontSize: '0.85rem',
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: currentPage === item.path ? 700 : 500,
+                  color: currentPage === item.path ? 'primary.main' : 'text.primary',
+                  letterSpacing: '0.2px'
                 }}
               />
             </ListItemButton>
@@ -280,7 +285,8 @@ function App() {
     const pageProps = {
       systemStatus,
       connectionStatus,
-      lastMessage
+      lastMessage,
+      setCurrentPage
     }
     
     switch (currentPage) {
@@ -307,97 +313,112 @@ function App() {
       <AppBar
         position="fixed"
         sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
           zIndex: theme.zIndex.drawer + 1,
+          background: 'rgba(11, 18, 21, 0.85) !important',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--border-primary)',
+          boxShadow: 'none'
         }}
       >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {navigationItems.find(item => item.path === currentPage)?.text || 'Dashboard'}
+        <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: { xs: 'wrap', md: 'nowrap' }, py: { xs: 1, md: 0 } }}>
+          {/* Logo & Brand */}
+          <Typography noWrap component="div" sx={{ fontSize: '1.75rem', fontWeight: 900, fontFamily: 'var(--font-sans)', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 2, mr: 4 }}>
+            ROCKGUARD AI
+            <span className="neon-dot" style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', backgroundColor: connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)', boxShadow: `0 0 10px ${connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)'}` }} />
           </Typography>
+
+          {/* Centered Horizontal Navigation Tabs */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2.5, 
+            mx: { xs: 0, md: 4 },
+            order: { xs: 3, md: 2 },
+            width: { xs: '100%', md: 'auto' },
+            justifyContent: { xs: 'flex-start', md: 'center' },
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            '&::-webkit-scrollbar': { display: 'none' }
+          }}>
+            {navigationItems.map((item) => (
+              <Button
+                key={item.path}
+                onClick={() => setCurrentPage(item.path)}
+                sx={{
+                  color: currentPage === item.path ? 'var(--accent-primary)' : 'text.secondary',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '1.05rem',
+                  fontWeight: 'bold',
+                  px: 4,
+                  py: 1.2,
+                  borderRadius: '4px',
+                  border: currentPage === item.path ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                  background: currentPage === item.path ? 'rgba(66, 201, 208, 0.05)' : 'transparent',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: 'var(--accent-primary)',
+                    background: 'rgba(66, 201, 208, 0.08)'
+                  }
+                }}
+                startIcon={React.cloneElement(item.icon, { sx: { fontSize: '22px !important', color: currentPage === item.path ? 'var(--accent-primary)' : 'inherit' } })}
+              >
+                {item.text.toUpperCase()}
+              </Button>
+            ))}
+          </Box>
           
-          <IconButton color="inherit" sx={{ mr: 1 }}>
-            <Badge badgeContent={systemStatus.active_connections} color="secondary">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
-          
-          <Chip 
-            label={connectionStatus}
-            color={connectionStatus === 'Connected' ? 'success' : 'warning'}
-            variant="outlined"
-            size="small"
-            sx={{ 
-              borderColor: 'rgba(255,255,255,0.3)',
-              color: 'white',
-              fontSize: '0.75rem'
-            }}
-          />
+          {/* Coordinates & Notification Array */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, order: { xs: 2, md: 3 } }}>
+            <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 2.5 }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', letterSpacing: '0.2px', fontSize: '0.85rem' }}>
+                LAT: 20.3541° N | LON: 81.2847° E
+              </Typography>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'success.main', fontWeight: 700, fontSize: '0.85rem' }}>
+                ELEV: 842m
+              </Typography>
+            </Box>
+
+            <IconButton color="inherit" size="medium">
+              <Badge badgeContent={systemStatus?.active_connections || 0} color="error">
+                <NotificationsIcon sx={{ fontSize: 26 }} />
+              </Badge>
+            </IconButton>
+            
+            <Chip 
+              label={connectionStatus}
+              color={connectionStatus === 'Connected' ? 'success' : 'warning'}
+              variant="outlined"
+              size="medium"
+              sx={{ 
+                borderColor: connectionStatus === 'Connected' ? 'rgba(66, 201, 208, 0.4)' : 'rgba(255, 176, 32, 0.4)',
+                color: connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)',
+                fontSize: '0.8rem',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 'bold',
+                height: 28
+              }}
+            />
+          </Box>
         </Toolbar>
       </AppBar>
       
-      {/* Navigation Drawer */}
-      <Box
-        component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
-              width: drawerWidth,
-              backgroundColor: '#1e293b',
-              borderRight: '1px solid #334155'
-            },
-          }}
-        >
-          {drawerContent}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
-              width: drawerWidth,
-              backgroundColor: '#1e293b',
-              borderRight: '1px solid #334155'
-            },
-          }}
-          open
-        >
-          {drawerContent}
-        </Drawer>
-      </Box>
+      {/* Navigation Drawer removed for full-screen HUD navbar layout */}
       
       {/* Main Content */}
       <Box
         component="main"
+        className="geological-grid telemetry-grid-bg"
         sx={{
           flexGrow: 1,
           width: { md: `calc(100% - ${drawerWidth}px)` },
           minHeight: '100vh',
-          backgroundColor: '#0f172a',
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
+        <div className="scanline" />
         <Toolbar />
-        <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Container maxWidth="xl" sx={{ py: 3, position: 'relative', zIndex: 1 }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPage}

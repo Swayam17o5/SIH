@@ -187,8 +187,7 @@ const Detection = () => {
           const scaledY = (y1 * scaleY) + offsetY
           const scaledWidth = (x2 - x1) * scaleX
           const scaledHeight = (y2 - y1) * scaleY
-          const confidence = (detection.confidence * 100).toFixed(1)
-          const boxColor = confidence > 80 ? '#10b981' : confidence > 60 ? '#f59e0b' : '#ef4444'
+          const boxColor = confidence > 80 ? 'var(--status-success)' : confidence > 60 ? 'var(--status-warning)' : 'var(--status-danger)'
           const textWidth = confidence.length * 8 + 35
 
           console.log(`🎯 Detection ${index + 1}:`, {
@@ -491,12 +490,7 @@ const Detection = () => {
         
         {/* Results Section */}
         <Grid item xs={12} lg={6}>
-          <Card sx={{ 
-            height: 'fit-content',
-            background: 'rgba(15, 23, 42, 0.8)',
-            border: detectionResults ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
-            borderRadius: 3
-          }}>
+          <Card sx={{ height: 'fit-content' }}>
             <CardContent>
               <Typography variant="h6" component="div" sx={{ fontWeight: 700, mb: 3 }}>
                 🎯 AI Detection Results
@@ -509,12 +503,14 @@ const Detection = () => {
                       <Paper sx={{ 
                         p: 3, 
                         textAlign: 'center', 
-                        background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.2))',
-                        border: '1px solid rgba(59, 130, 246, 0.3)'
+                        backgroundColor: 'background.default',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 1
                       }}>
                         <Typography variant="h3" sx={{ 
                           fontWeight: 800, 
-                          color: '#3b82f6'
+                          color: 'primary.main',
+                          fontFamily: 'var(--font-mono)'
                         }}>
                           {detectionResults.total_detections}
                         </Typography>
@@ -527,12 +523,14 @@ const Detection = () => {
                       <Paper sx={{ 
                         p: 3, 
                         textAlign: 'center', 
-                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.2))',
-                        border: '1px solid rgba(16, 185, 129, 0.3)'
+                        backgroundColor: 'background.default',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 1
                       }}>
                         <Typography variant="h3" sx={{ 
                           fontWeight: 800, 
-                          color: '#10b981'
+                          color: 'success.main',
+                          fontFamily: 'var(--font-mono)'
                         }}>
                           {detectionResults.detections && detectionResults.detections.length > 0 
                             ? (detectionResults.detections.reduce((sum, det) => sum + det.confidence, 0) / detectionResults.detections.length * 100).toFixed(1)
@@ -555,10 +553,10 @@ const Detection = () => {
                         <Grid item xs={4}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Box sx={{ 
-                              width: 20, 
-                              height: 20, 
-                              borderRadius: 1, 
-                              backgroundColor: '#10b981' 
+                              width: 16, 
+                              height: 16, 
+                              borderRadius: 0.5, 
+                              backgroundColor: 'var(--status-success)' 
                             }} />
                             <Typography variant="caption" color="text.secondary">
                               High (80%+)
@@ -568,10 +566,10 @@ const Detection = () => {
                         <Grid item xs={4}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Box sx={{ 
-                              width: 20, 
-                              height: 20, 
-                              borderRadius: 1, 
-                              backgroundColor: '#f59e0b' 
+                              width: 16, 
+                              height: 16, 
+                              borderRadius: 0.5, 
+                              backgroundColor: 'var(--status-warning)' 
                             }} />
                             <Typography variant="caption" color="text.secondary">
                               Medium (60-80%)
@@ -581,10 +579,10 @@ const Detection = () => {
                         <Grid item xs={4}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Box sx={{ 
-                              width: 20, 
-                              height: 20, 
-                              borderRadius: 1, 
-                              backgroundColor: '#ef4444' 
+                              width: 16, 
+                              height: 16, 
+                              borderRadius: 0.5, 
+                              backgroundColor: 'var(--status-danger)' 
                             }} />
                             <Typography variant="caption" color="text.secondary">
                               Low (&lt;60%)

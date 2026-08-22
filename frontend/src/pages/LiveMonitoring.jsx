@@ -179,21 +179,21 @@ const LiveMonitoring = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return '#4CAF50'
-      case 'inactive': return '#9E9E9E'
-      case 'maintenance': return '#FF9800'
-      case 'error': return '#F44336'
-      default: return '#9E9E9E'
+      case 'active': return 'var(--status-success)'
+      case 'inactive': return 'text.secondary'
+      case 'maintenance': return 'var(--status-warning)'
+      case 'error': return 'var(--status-danger)'
+      default: return 'text.secondary'
     }
   }
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'active': return <CheckCircleIcon sx={{ color: '#4CAF50' }} />
-      case 'inactive': return <VideocamOffIcon sx={{ color: '#9E9E9E' }} />
-      case 'maintenance': return <WarningIcon sx={{ color: '#FF9800' }} />
-      case 'error': return <ErrorIcon sx={{ color: '#F44336' }} />
-      default: return <VideocamOffIcon sx={{ color: '#9E9E9E' }} />
+      case 'active': return <CheckCircleIcon color="success" />
+      case 'inactive': return <VideocamOffIcon sx={{ color: 'text.secondary' }} />
+      case 'maintenance': return <WarningIcon color="warning" />
+      case 'error': return <ErrorIcon color="error" />
+      default: return <VideocamOffIcon sx={{ color: 'text.secondary' }} />
     }
   }
 
@@ -253,8 +253,8 @@ const LiveMonitoring = () => {
     <Card 
       sx={{ 
         height: '100%',
-        backgroundColor: '#1e293b',
-        border: selectedCamera === direction ? '2px solid #3b82f6' : '1px solid #334155',
+        backgroundColor: 'background.paper',
+        border: selectedCamera === direction ? '2px solid var(--accent-primary)' : '1px solid var(--border-primary)',
         transition: 'all 0.3s ease',
         '&:hover': {
           transform: 'translateY(-2px)',
@@ -294,7 +294,7 @@ const LiveMonitoring = () => {
           sx={{ 
             width: '100%',
             aspectRatio: '16/9',
-            backgroundColor: '#0f172a',
+            backgroundColor: 'background.default',
             borderRadius: 2,
             mb: 2,
             position: 'relative',
@@ -489,7 +489,7 @@ const LiveMonitoring = () => {
   )
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', p: 3 }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', color: 'white', p: 3 }}>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -497,60 +497,60 @@ const LiveMonitoring = () => {
         transition={{ duration: 0.5 }}
       >
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, color: '#3b82f6' }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, color: 'primary.main' }}>
             🎥 Live Camera Monitoring
           </Typography>
-          <Typography variant="body1" sx={{ color: '#94a3b8', mb: 1 }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary', mb: 1 }}>
             Real-time monitoring from four directional cameras with AI-powered rock detection
           </Typography>
-          <Typography variant="body2" sx={{ color: '#8b5cf6', mb: 3, fontWeight: 600 }}>
+          <Typography variant="body2" sx={{ color: 'secondary.main', mb: 3, fontWeight: 600 }}>
             ⚡ Powered by YOLOv8
           </Typography>
           
           {/* System Stats */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Paper sx={{ p: 2, backgroundColor: '#1e293b', textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ color: '#3b82f6', fontWeight: 600 }}>
+              <Paper sx={{ p: 2, backgroundColor: 'background.paper', border: '1px solid var(--border-primary)', borderRadius: 1, textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                   {systemStats.activeCameras}/{systemStats.totalCameras}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   Active Cameras
                 </Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Paper sx={{ p: 2, backgroundColor: '#1e293b', textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ color: '#f44336', fontWeight: 600 }}>
+              <Paper sx={{ p: 2, backgroundColor: 'background.paper', border: '1px solid var(--border-primary)', borderRadius: 1, textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: 'error.main', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                   {systemStats.totalDetections}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   Active Detections
                 </Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Paper sx={{ p: 2, backgroundColor: '#1e293b', textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ color: '#22c55e', fontWeight: 600 }}>
+              <Paper sx={{ p: 2, backgroundColor: 'background.paper', border: '1px solid var(--border-primary)', borderRadius: 1, textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: 'success.main', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                   {systemStats.storageUsed}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   Storage Used
                 </Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Paper sx={{ p: 2, backgroundColor: '#1e293b', textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+              <Paper sx={{ p: 2, backgroundColor: 'background.paper', border: '1px solid var(--border-primary)', borderRadius: 1, textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: 'secondary.main', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                   {systemStats.uptime}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   System Uptime
                 </Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Paper sx={{ p: 2, backgroundColor: '#1e293b', textAlign: 'center' }}>
+              <Paper sx={{ p: 2, backgroundColor: 'background.paper', border: '1px solid var(--border-primary)', borderRadius: 1, textAlign: 'center', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <FormControlLabel
                   control={
                     <Switch 
@@ -560,7 +560,7 @@ const LiveMonitoring = () => {
                     />
                   }
                   label={
-                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                       Auto Refresh
                     </Typography>
                   }
@@ -615,7 +615,7 @@ const LiveMonitoring = () => {
               style={{ maxWidth: '90vw', maxHeight: '90vh' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <Card sx={{ backgroundColor: '#1e293b' }}>
+              <Card sx={{ backgroundColor: 'background.paper' }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h5" sx={{ color: 'white' }}>
@@ -629,7 +629,7 @@ const LiveMonitoring = () => {
                     sx={{ 
                       width: '80vw',
                       height: '60vh',
-                      backgroundColor: '#0f172a',
+                      backgroundColor: 'background.default',
                       borderRadius: 2,
                       display: 'flex',
                       alignItems: 'center',
