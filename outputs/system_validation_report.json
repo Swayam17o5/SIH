@@ -1,22 +1,22 @@
 {
-  "validation_timestamp": "2025-09-16T19:50:15.276381",
-  "system_status": "ISSUES_DETECTED",
+  "validation_timestamp": "2026-08-21T23:58:24.135882",
+  "system_status": "OPERATIONAL",
   "component_status": {
-    "dependencies": false,
+    "dependencies": true,
     "output_directories": true,
     "data_integrity": true,
     "training_pipeline": true,
     "video_detection": true,
     "sensor_analysis": true,
     "dem_analysis": true,
-    "dashboard": false
+    "dashboard": true
   },
   "system_info": {
-    "python_version": "3.12.1 (tags/v3.12.1:2305ca5, Dec  7 2023, 22:03:25) [MSC v.1937 64 bit (AMD64)]",
-    "platform": "win32",
-    "project_root": "C:\\Abhinav_Shukla\\VOID_SIH25\\Version5\\rockfall_detection"
+    "python_version": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
+    "platform": "linux",
+    "project_root": "/home/krutik/Krutik/Mrudul/SIH"
   },
   "recommendations": [
-    "Fix dashboard component initialization"
+    "System is fully operational - ready for deployment"
   ]
 }

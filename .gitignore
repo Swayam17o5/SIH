@@ -304,3 +304,9 @@ build/
 !*.mov
 !*.mkv
 !*.webm
+
+# Always ignore virtual environments and node modules even inside subfolders
+backend/venv/
+backend/.venv/
+**/node_modules/
+**/__pycache__/
