@@ -62,9 +62,9 @@ const Detection = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [inputDiagnostics, setInputDiagnostics] = useState(null)
-  
+
   // Model Settings
-  const [confidenceThreshold, setConfidenceThreshold] = useState(0.5)
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.25)
   const [inferenceMode, setInferenceMode] = useState('auto')
   const [tileSize, setTileSize] = useState(448)
   const [modelsLoaded, setModelsLoaded] = useState({
@@ -72,35 +72,32 @@ const Detection = () => {
     prediction_models: false
   })
   const [backendConnected, setBackendConnected] = useState(false)
-  
+
   // Live Camera Feed Selection
   const [selectedCamera, setSelectedCamera] = useState('east')
   const [cameraStreamUrl, setCameraStreamUrl] = useState('')
-  
+
   // Mine Zone & DEM selection
   const [demFiles, setDemFiles] = useState([])
   const [selectedDEM, setSelectedDEM] = useState('')
   const [selectedZone, setSelectedZone] = useState('North Wall')
-  
-  // Risk Engine integration
-  const [sendingToRisk, setSendingToRisk] = useState(false)
-  const [riskAssessmentResult, setRiskAssessmentResult] = useState(null)
-  const [riskMessage, setRiskMessage] = useState(null)
-  
+
+
+
   // History and Session tracking
   const [sessionHistory, setSessionHistory] = useState([])
   const [lastDetectionTime, setLastDetectionTime] = useState(null)
-  
+
   // UI Display Control
   const [showBBoxes, setShowBBoxes] = useState(true)
   const [zoomLevel, setZoomLevel] = useState(1.0)
-  const [imageDisplayDimensions, setImageDisplayDimensions] = useState({ 
-    width: 0, 
-    height: 0, 
-    naturalWidth: 0, 
-    naturalHeight: 0 
+  const [imageDisplayDimensions, setImageDisplayDimensions] = useState({
+    width: 0,
+    height: 0,
+    naturalWidth: 0,
+    naturalHeight: 0
   })
-  
+
   const imageRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -160,8 +157,8 @@ const Detection = () => {
   const handleImageLoad = () => {
     if (imageRef.current) {
       const { clientWidth, clientHeight, naturalWidth, naturalHeight } = imageRef.current
-      setImageDisplayDimensions({ 
-        width: clientWidth, 
+      setImageDisplayDimensions({
+        width: clientWidth,
         height: clientHeight,
         naturalWidth,
         naturalHeight
@@ -228,7 +225,7 @@ const Detection = () => {
     setError(null)
     setRiskAssessmentResult(null)
     setRiskMessage(null)
-    
+
     try {
       if (type === 'backend') {
         // Fetch default test image from backend
@@ -267,7 +264,7 @@ const Detection = () => {
       img.crossOrigin = 'anonymous'
       // Use local proxied URL to prevent CORS taint
       img.src = getApiUrl(`/api/camera/${selectedCamera}/feed`)
-      
+
       img.onload = () => {
         const canvas = document.createElement('canvas')
         canvas.width = img.naturalWidth || img.width || 640
@@ -283,7 +280,7 @@ const Detection = () => {
           }
         }, 'image/jpeg', 0.95)
       }
-      
+
       img.onerror = () => {
         // Fallback: draw from DOM image element if loaded
         const domImg = document.getElementById(`live-feed-element-${selectedCamera}`)
@@ -338,7 +335,7 @@ const Detection = () => {
       // 2. Prepare Form Data
       const formData = new FormData()
       formData.append('file', imageToUpload)
-      
+
       // 3. Make POST request
       const detectionParams = new URLSearchParams({
         confidence_threshold: String(confidenceThreshold),
@@ -361,14 +358,14 @@ const Detection = () => {
 
       const results = await response.json()
       setDetectionResults(results)
-      
+
       const detectTime = new Date()
       setLastDetectionTime(detectTime.toLocaleTimeString())
 
       // 4. Append to Session History
       const sourceName = activeTab === 0 ? (selectedImageFile?.name || 'Uploaded File') :
-                         activeTab === 1 ? `Camera Snapshot (${selectedCamera.toUpperCase()})` : 'Sample Image'
-      
+        activeTab === 1 ? `Camera Snapshot (${selectedCamera.toUpperCase()})` : 'Sample Image'
+
       const newHistoryLog = {
         id: `rock_${Date.now()}`,
         filename: sourceName,
@@ -399,100 +396,14 @@ const Detection = () => {
     }
   }
 
-  // --- Integrate with Risk prediction engine ---
-  const sendToRiskEngine = async () => {
-    if (!detectionResults) return
-    setSendingToRisk(true)
-    setRiskMessage(null)
-    setRiskAssessmentResult(null)
 
-    try {
-      // 1. Fetch DEM statistics for selected mine to gather slope, elevation and roughness
-      let demStats = {
-        mean_slope_deg: 35.0,
-        mean_elevation: 1200.0,
-        roughness_tri: 0.5,
-        risk_score: 50.0
-      }
 
-      if (selectedDEM) {
-        try {
-          const demAnalysis = await apiRequest(`/api/dem/analyze/${selectedDEM}`)
-          if (demAnalysis && demAnalysis.statistics) {
-            demStats = demAnalysis.statistics
-          }
-        } catch (demErr) {
-          console.warn('Failed to fetch DEM statistics, falling back to default terrain metrics.', demErr)
-        }
-      }
-
-      // 2. Map Rock detections to fracture density & instability indices
-      // Detections indicate higher rock fracturing and wall instability.
-      const detectedCount = detectionResults.total_detections
-      const avgConfidence = detectedCount > 0
-        ? detectionResults.detections.reduce((sum, d) => sum + d.confidence, 0) / detectedCount
-        : 0
-
-      const calculatedInstability = Math.min(1.0, 
-        (demStats.risk_score / 100) * 0.4 + (detectedCount * 0.1) + (avgConfidence * 0.15)
-      )
-      const calculatedFractures = Math.min(10.0, 2.0 + (detectedCount * 0.8))
-
-      // 3. Assemble full EnvironmentalData model body
-      const riskPayload = {
-        slope: demStats.mean_slope_deg || demStats.max_slope_deg || 35.0,
-        elevation: demStats.mean_elevation || 1200.0,
-        fracture_density: calculatedFractures,
-        roughness: Math.min(1.0, demStats.roughness_tri || 0.5),
-        slope_variability: 0.4,
-        instability_index: calculatedInstability,
-        wetness_index: 0.3,
-        month: new Date().getMonth() + 1,
-        day_of_year: Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000),
-        season: Math.floor((new Date().getMonth()) / 3),
-        rainfall: 45.0, // mm
-        temperature: 15.0,
-        temperature_variation: 8.0,
-        freeze_thaw_cycles: 5.0,
-        seismic_activity: 2.0,
-        wind_speed: 12.0,
-        precipitation_intensity: 4.0,
-        humidity: 65.0,
-        risk_score: 0.0
-      }
-
-      // 4. Send payload to risk-assessment backend
-      const result = await apiRequest('/api/predict-risk', {
-        method: 'POST',
-        body: JSON.stringify(riskPayload)
-      })
-
-      setRiskAssessmentResult(result)
-      setRiskMessage({
-        type: 'success',
-        text: 'Visual detection signal successfully sent to Risk Assessment.'
-      })
-
-    } catch (err) {
-      console.error('Error sending detection features to risk engine:', err)
-      setRiskMessage({
-        type: 'error',
-        text: 'Unable to send detection to Risk Engine. Check developer tools for logs.'
-      })
-    } finally {
-      setSendingToRisk(false)
-    }
-  }
-
-  // --- Action Methods ---
   const clearWorkbench = () => {
     if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
     setSelectedImageFile(null)
     setDetectionResults(null)
     setInputDiagnostics(null)
-    setRiskAssessmentResult(null)
-    setRiskMessage(null)
     setError(null)
     setZoomLevel(1.0)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -559,21 +470,21 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
 
   // --- Helper Math to draw Bounding Boxes ---
   const renderBoundingBoxes = () => {
-    if (!detectionResults || !detectionResults.detections || !detectionResults.image_dimensions || 
-        imageDisplayDimensions.width === 0 || imageDisplayDimensions.height === 0 || !showBBoxes) {
+    if (!detectionResults || !detectionResults.detections || !detectionResults.image_dimensions ||
+      imageDisplayDimensions.width === 0 || imageDisplayDimensions.height === 0 || !showBBoxes) {
       return null
     }
 
     const { image_dimensions } = detectionResults
-    
+
     // Fit image size accounting for object-fit: contain inside viewport
     const containerWidth = imageDisplayDimensions.width
     const containerHeight = imageDisplayDimensions.height
     const imageAspectRatio = image_dimensions.width / image_dimensions.height
     const containerAspectRatio = containerWidth / containerHeight
-    
+
     let displayedImageWidth, displayedImageHeight, offsetX = 0, offsetY = 0
-    
+
     if (imageAspectRatio > containerAspectRatio) {
       displayedImageWidth = containerWidth
       displayedImageHeight = containerWidth / imageAspectRatio
@@ -583,7 +494,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
       displayedImageWidth = containerHeight * imageAspectRatio
       offsetX = (containerWidth - displayedImageWidth) / 2
     }
-    
+
     const scaleX = displayedImageWidth / image_dimensions.width
     const scaleY = displayedImageHeight / image_dimensions.height
 
@@ -600,14 +511,14 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
       >
         {detectionResults.detections.map((detection, index) => {
           const [x1, y1, x2, y2] = detection.bbox
-          
+
           // Scaled offset positions
           const scaledX = (x1 * scaleX) + offsetX
           const scaledY = (y1 * scaleY) + offsetY
           const scaledWidth = (x2 - x1) * scaleX
           const scaledHeight = (y2 - y1) * scaleY
           const confidence = (detection.confidence * 100).toFixed(1)
-          
+
           // Color based on confidence levels
           const boxColor = detection.confidence >= 0.8 ? '#10b981' : detection.confidence >= 0.6 ? '#f59e0b' : '#ef4444'
           const labelWidth = confidence.length * 8 + 35
@@ -655,11 +566,11 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
   // --- Visual Risk Levels Calculations ---
   const getVisualRiskDetails = () => {
     if (!detectionResults) return { level: 'LOW', score: 0, color: '#10b981' }
-    
+
     const count = detectionResults.total_detections
     let level = 'LOW'
     let color = '#10b981' // green
-    
+
     if (count >= 8) {
       level = 'HIGH'
       color = '#ef4444' // red
@@ -667,7 +578,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
       level = 'MEDIUM'
       color = '#f59e0b' // orange
     }
-    
+
     return { level, count, color }
   }
 
@@ -675,19 +586,19 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
     if (!detectionResults || detectionResults.total_detections === 0) {
       return { high: 0, medium: 0, low: 0, avg: 0 }
     }
-    
+
     let high = 0
     let medium = 0
     let low = 0
     let sum = 0
-    
+
     detectionResults.detections.forEach(d => {
       sum += d.confidence
       if (d.confidence >= 0.8) high++
       else if (d.confidence >= 0.6) medium++
       else low++
     })
-    
+
     return {
       high,
       medium,
@@ -701,15 +612,15 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
 
   return (
     <Box sx={{ color: 'text.primary' }}>
-      
+
       {/* HEADER */}
-      <Box sx={{ 
-        mb: 4, 
-        p: 3, 
-        borderRadius: 2, 
+      <Box sx={{
+        mb: 4,
+        p: 3,
+        borderRadius: 2,
         border: '1px solid rgba(255,255,255,0.08)',
         background: 'rgba(30, 41, 59, 0.4)',
-        display: 'flex', 
+        display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
@@ -717,7 +628,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
       }}>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 800, color: 'white', mb: 0.5 }}>
-            AI Rockfall Detection
+            AI Rockfall Prediction
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Computer vision module for detecting visible rockfall activity
@@ -761,18 +672,18 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
 
       {/* WORKBENCH GRID */}
       <Grid container spacing={3}>
-        
+
         {/* LEFT COLUMN: Model & Inputs */}
         <Grid item xs={12} lg={4}>
           <Stack spacing={3}>
-            
+
             {/* SECTION 1 — MODEL SELECTION */}
             <Card className="glass-card" sx={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <CardContent>
                 <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center' }}>
-                  <ModelIcon sx={{ mr: 1, color: '#3b82f6' }} /> Select Detection Model
+                  <ModelIcon sx={{ mr: 1, color: '#3b82f6' }} /> Select Prediction Model
                 </Typography>
-                
+
                 <FormControl fullWidth size="small" sx={{ mb: 3 }}>
                   <InputLabel id="model-select-label" sx={{ color: 'text.secondary' }}>Model</InputLabel>
                   <Select
@@ -795,7 +706,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="caption">Classes</Typography>
-                      <Typography variant="body2" sx={{ color: 'white !important', fontWeight: 600 }}>Rock / Boulder</Typography>
+                      <Typography variant="body2" sx={{ color: 'white !important', fontWeight: 600 }}>Rock</Typography>
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="caption">Input Size</Typography>
@@ -803,9 +714,9 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="caption">Status</Typography>
-                      <Typography variant="body2" sx={{ 
+                      <Typography variant="body2" sx={{
                         color: modelsLoaded.detection_model ? '#10b981 !important' : '#ef4444 !important',
-                        fontWeight: 600 
+                        fontWeight: 600
                       }}>
                         {modelsLoaded.detection_model ? 'LOADED' : 'UNAVAILABLE'}
                       </Typography>
@@ -867,8 +778,8 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
             {/* SECTION 2 — INPUTS PANEL */}
             <Card className="glass-card" sx={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <Box sx={{ borderBottom: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                <Tabs 
-                  value={activeTab} 
+                <Tabs
+                  value={activeTab}
                   onChange={(e, val) => {
                     setActiveTab(val)
                     setError(null)
@@ -886,7 +797,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                 </Tabs>
               </Box>
               <CardContent sx={{ pt: 2.5 }}>
-                
+
                 {/* TAB 0: UPLOAD FILE */}
                 {activeTab === 0 && (
                   <Box>
@@ -908,11 +819,11 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                         }
                       }}
                     >
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleFileChange} 
-                        style={{ display: 'none' }} 
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        style={{ display: 'none' }}
                         accept="image/*"
                       />
                       <UploadIcon sx={{ fontSize: 40, color: '#64748b', mb: 1.5 }} />
@@ -959,18 +870,18 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                       </Select>
                     </FormControl>
 
-                    <Box sx={{ 
-                      position: 'relative', 
-                      borderRadius: 1, 
-                      overflow: 'hidden', 
-                      aspectRatio: '16/9', 
+                    <Box sx={{
+                      position: 'relative',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      aspectRatio: '16/9',
                       background: 'black',
                       border: '1px solid rgba(255,255,255,0.08)'
                     }}>
-                      <img 
+                      <img
                         id={`live-feed-element-${selectedCamera}`}
-                        src={cameraStreamUrl} 
-                        alt={`${selectedCamera} camera stream`} 
+                        src={cameraStreamUrl}
+                        alt={`${selectedCamera} camera stream`}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                       <Box sx={{
@@ -1007,16 +918,16 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                 {activeTab === 2 && (
                   <Stack spacing={2}>
                     <Typography variant="caption" color="text.secondary">Select an authentic local or server sample image to evaluate:</Typography>
-                    
+
                     <Grid container spacing={1.5}>
                       <Grid item xs={6}>
-                        <Paper 
+                        <Paper
                           onClick={() => loadSample('backend')}
-                          sx={{ 
-                            p: 1.5, 
-                            cursor: 'pointer', 
-                            textAlign: 'center', 
-                            background: 'rgba(30, 41, 59, 0.4)', 
+                          sx={{
+                            p: 1.5,
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            background: 'rgba(30, 41, 59, 0.4)',
                             border: '1px solid rgba(255,255,255,0.08)',
                             '&:hover': { background: 'rgba(59, 130, 246, 0.1)', borderColor: '#3b82f6' }
                           }}
@@ -1027,13 +938,13 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                         </Paper>
                       </Grid>
                       <Grid item xs={6}>
-                        <Paper 
+                        <Paper
                           onClick={() => loadSample('local')}
-                          sx={{ 
-                            p: 1.5, 
-                            cursor: 'pointer', 
-                            textAlign: 'center', 
-                            background: 'rgba(30, 41, 59, 0.4)', 
+                          sx={{
+                            p: 1.5,
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            background: 'rgba(30, 41, 59, 0.4)',
                             border: '1px solid rgba(255,255,255,0.08)',
                             '&:hover': { background: 'rgba(59, 130, 246, 0.1)', borderColor: '#3b82f6' }
                           }}
@@ -1075,13 +986,13 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
         {/* RIGHT COLUMN: Result Viewer, Stats, and Risk Engine */}
         <Grid item xs={12} lg={8}>
           <Stack spacing={3}>
-            
+
             {/* SECTION 3 — RESULT VIEWER */}
             <Card className="glass-card" sx={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
                   <Typography variant="h6" sx={{ color: 'white', fontWeight: 700 }}>
-                    🎯 Detection Viewer
+                    🎯 Prediction Viewer
                   </Typography>
                   {detectionResults && (
                     <Stack direction="row" spacing={1} alignItems="center">
@@ -1090,9 +1001,9 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                       )}
                       <FormControlLabel
                         control={
-                          <Switch 
-                            checked={showBBoxes} 
-                            onChange={(e) => setShowBBoxes(e.target.checked)} 
+                          <Switch
+                            checked={showBBoxes}
+                            onChange={(e) => setShowBBoxes(e.target.checked)}
                             size="small"
                             sx={{
                               '& .MuiSwitch-switchBase.Mui-checked': { color: '#3b82f6' },
@@ -1131,10 +1042,10 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                   }}
                 >
                   {previewUrl ? (
-                    <Box 
-                      sx={{ 
-                        position: 'relative', 
-                        width: '100%', 
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: '100%',
                         height: '100%',
                         transform: `scale(${zoomLevel})`,
                         transition: 'transform 0.2s ease-out',
@@ -1253,7 +1164,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
             {/* SPLIT PANELS: SUMMARY + ASSIGNMENT */}
             {detectionResults && (
               <Grid container spacing={3}>
-                
+
                 {/* SECTION 5 — DETECTION SUMMARY */}
                 <Grid item xs={12} md={6}>
                   <Card className="glass-card" sx={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1261,7 +1172,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                       <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 700, mb: 2 }}>
                         Visual Detection Risk Summary
                       </Typography>
-                      
+
                       <Stack spacing={1.5} sx={{ '& .MuiTypography-body2': { color: 'text.secondary' } }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2">Detection Density</Typography>
@@ -1281,21 +1192,21 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                           <Typography variant="body2">Low-Confidence Detections (&lt;60%)</Typography>
                           <Typography variant="body2" sx={{ color: 'white !important' }}>{confStats.low}</Typography>
                         </Box>
-                        
+
                         <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-                        
+
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'white !important' }}>Visual Detection Risk</Typography>
-                          <Chip 
-                            label={visualRisk.level} 
+                          <Chip
+                            label={visualRisk.level}
                             size="small"
-                            sx={{ 
-                              backgroundColor: visualRisk.color, 
-                              color: 'white', 
+                            sx={{
+                              backgroundColor: visualRisk.color,
+                              color: 'white',
                               fontWeight: 700,
                               fontSize: '0.75rem',
                               px: 1
-                            }} 
+                            }}
                           />
                         </Box>
                         <Typography variant="caption" sx={{ color: 'text.secondary', opacity: 0.6, fontSize: '0.7rem' }}>
@@ -1313,7 +1224,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
                       <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 700, mb: 2 }}>
                         Assign Detection to Mine Zone
                       </Typography>
-                      
+
                       <Stack spacing={2.5}>
                         <FormControl fullWidth size="small">
                           <InputLabel id="dem-select-label" sx={{ color: 'text.secondary' }}>Target Site / Mine</InputLabel>
@@ -1361,122 +1272,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
               </Grid>
             )}
 
-            {/* SECTION 7 — SEND TO RISK ENGINE */}
-            {detectionResults && (
-              <Card className="glass-card" sx={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <CardContent>
-                  <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 700, mb: 1 }}>
-                    Risk Engine Integration
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Visual rock detections represent one key signal. Fuse this visual threat with static geomorphic slope, roughness, and weather datasets inside the prediction models.
-                  </Typography>
 
-                  {/* Flow chart layout */}
-                  <Grid container spacing={1} alignItems="center" sx={{ mb: 3, textAlign: 'center' }}>
-                    <Grid item xs={3}>
-                      <Paper sx={{ py: 1, background: 'rgba(30, 41, 59, 0.5)' }}>
-                        <Typography variant="caption" sx={{ color: '#3b82f6', fontWeight: 700 }}>Visual Detections</Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={1}>
-                      <Typography sx={{ color: 'text.secondary' }}>&rarr;</Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Paper sx={{ py: 1, background: 'rgba(30, 41, 59, 0.5)' }}>
-                        <Typography variant="caption" sx={{ color: '#8b5cf6', fontWeight: 700 }}>Geomorphic DEM Features</Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={1}>
-                      <Typography sx={{ color: 'text.secondary' }}>&rarr;</Typography>
-                    </Grid>
-                    <Grid item xs={3}>
-                      <Paper sx={{ py: 1, background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                        <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700 }}>Zone-level Risk</Typography>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-
-                  <Button
-                    variant="contained"
-                    onClick={sendToRiskEngine}
-                    disabled={sendingToRisk}
-                    startIcon={sendingToRisk ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
-                    sx={{
-                      background: 'linear-gradient(45deg, #10b981, #059669)',
-                      color: 'white',
-                      fontWeight: 700
-                    }}
-                  >
-                    {sendingToRisk ? 'Fusing datasets & evaluating...' : 'Send to Risk Engine'}
-                  </Button>
-
-                  {riskMessage && (
-                    <Alert severity={riskMessage.type} sx={{ mt: 2 }}>
-                      {riskMessage.text}
-                    </Alert>
-                  )}
-
-                  {/* Risk prediction outputs */}
-                  {riskAssessmentResult && (
-                    <Box sx={{ mt: 3, p: 2.5, borderRadius: 1.5, background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <Typography variant="subtitle2" sx={{ color: 'white', mb: 2, fontWeight: 700 }}>
-                        Fused Risk Evaluation Result
-                      </Typography>
-                      
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', justifycontent: 'center', alignItems: 'center' }}>
-                          <Paper sx={{ 
-                            p: 2, 
-                            width: '100%', 
-                            textAlign: 'center', 
-                            backgroundColor: riskAssessmentResult.risk_level === 'HIGH' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                            border: riskAssessmentResult.risk_level === 'HIGH' ? '1px solid #ef4444' : '1px solid #f59e0b'
-                          }}>
-                            <Typography variant="h5" sx={{ 
-                              fontWeight: 800, 
-                              color: riskAssessmentResult.risk_level === 'HIGH' ? '#ef4444' : '#f59e0b' 
-                            }}>
-                              {riskAssessmentResult.risk_level?.toUpperCase()}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">Overall Risk Level</Typography>
-                          </Paper>
-                        </Grid>
-                        
-                        <Grid item xs={6} md={4}>
-                          <Paper sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="h6" sx={{ color: '#3b82f6', fontWeight: 700 }}>
-                              {(riskAssessmentResult.risk_score * 100).toFixed(1)}%
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">Fused Probability</Typography>
-                          </Paper>
-                        </Grid>
-
-                        <Grid item xs={6} md={4}>
-                          <Paper sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 700 }}>
-                              {(riskAssessmentResult.confidence * 100).toFixed(1)}%
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">Engine Confidence</Typography>
-                          </Paper>
-                        </Grid>
-                      </Grid>
-
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1 }}>
-                          🛡️ Early Warning Recommendations:
-                        </Typography>
-                        <ul style={{ margin: 0, paddingLeft: 18, color: '#cbd5e1', fontSize: '0.85rem' }}>
-                          {riskAssessmentResult.recommendations.map((rec, i) => (
-                            <li key={i} style={{ marginBottom: 4 }}>{rec}</li>
-                          ))}
-                        </ul>
-                      </Box>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-            )}
 
             {/* SECTION 9 — ACTIONS PANEL */}
             {detectionResults && (
@@ -1515,7 +1311,7 @@ ${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`)
             <Card className="glass-card" sx={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <CardContent>
                 <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, mb: 1 }}>
-                  Session Detection History
+                  Session Prediction History
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
                   *History logs are stored in memory for the current session only.

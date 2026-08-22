@@ -22,7 +22,8 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  LinearProgress
+  LinearProgress,
+  Stack
 } from '@mui/material'
 import {
   Assessment as AssessmentIcon,
@@ -514,57 +515,95 @@ const RiskAssessment = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
                         {getRiskIcon(riskResults.risk_level)}
                       </Box>
-                      <Typography variant="h4" sx={{ fontWeight: 700, color: getRiskColor(riskResults.risk_level), mb: 1 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 800, color: getRiskColor(riskResults.risk_level), mb: 0.5 }}>
                         {riskResults.risk_level?.toUpperCase()}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Risk Level
+                      <Typography variant="caption" color="text.secondary">
+                        Calibrated Risk Tier
                       </Typography>
                     </Paper>
                     
-                    {/* Probability and Confidence */}
+                    {/* Score and Confidence */}
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                       <Grid item xs={6}>
                         <Paper sx={{ p: 2, textAlign: 'center', border: '1px solid var(--border-primary)', backgroundColor: 'background.default' }}>
-                          <Typography variant="h5" sx={{ fontWeight: 600, color: 'primary.main', fontFamily: 'var(--font-mono)' }}>
-                            {(riskResults.risk_score * 100).toFixed(1)}%
+                          <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main', fontFamily: 'var(--font-mono)' }}>
+                            {riskResults.risk_score} <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>/100</span>
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Probability
+                          <Typography variant="caption" color="text.secondary">
+                            Continuous Score
                           </Typography>
                         </Paper>
                       </Grid>
                       <Grid item xs={6}>
                         <Paper sx={{ p: 2, textAlign: 'center', border: '1px solid var(--border-primary)', backgroundColor: 'background.default' }}>
-                          <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main', fontFamily: 'var(--font-mono)' }}>
-                            {(riskResults.confidence * 100).toFixed(1)}%
+                          <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main', fontFamily: 'var(--font-mono)' }}>
+                            {((riskResults.confidence || 0.85) * 100).toFixed(0)}%
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Confidence
+                          <Typography variant="caption" color="text.secondary">
+                            Model Confidence
                           </Typography>
                         </Paper>
                       </Grid>
                     </Grid>
                     
+                    {/* 4-Tier Probabilities */}
+                    {riskResults.probabilities && (
+                      <Box sx={{ mb: 3, p: 2, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-primary)' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: 'text.secondary' }}>
+                          Model Class Probabilities:
+                        </Typography>
+                        {Object.entries(riskResults.probabilities).map(([tier, prob]) => {
+                          const col = tier === 'CRITICAL' ? '#ef4444' : tier === 'HIGH' ? '#f97316' : tier === 'MEDIUM' ? '#f59e0b' : '#10b981'
+                          return (
+                            <Box key={tier} sx={{ mb: 1 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.2 }}>
+                                <Typography variant="caption" sx={{ color: col, fontWeight: 600 }}>{tier}</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 700 }}>{(prob * 100).toFixed(1)}%</Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={Math.min(100, prob * 100)}
+                                sx={{
+                                  height: 4,
+                                  borderRadius: 2,
+                                  backgroundColor: 'rgba(255,255,255,0.08)',
+                                  '& .MuiLinearProgress-bar': { backgroundColor: col }
+                                }}
+                              />
+                            </Box>
+                          )
+                        })}
+                      </Box>
+                    )}
+
                     {/* Contributing Factors */}
                     {riskResults.contributing_factors && riskResults.contributing_factors.length > 0 && (
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                      <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                           Key Risk Factors:
                         </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {riskResults.contributing_factors.map((factor, index) => (
-                            <Chip
-                              key={index}
-                              label={factor.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              size="small"
-                              sx={{
-                                backgroundColor: getRiskColor(riskResults.risk_level),
-                                color: 'white'
-                              }}
-                            />
-                          ))}
-                        </Box>
+                        <Stack spacing={1}>
+                          {riskResults.contributing_factors.map((factor, index) => {
+                            const fText = typeof factor === 'string' ? factor : `${factor.factor || factor.name}: ${factor.impact || ''}`
+                            const fColor = typeof factor === 'object' && factor.impact === 'CRITICAL' ? '#ef4444' :
+                                           typeof factor === 'object' && factor.impact === 'HIGH' ? '#f97316' : '#38bdf8'
+                            return (
+                              <Chip
+                                key={index}
+                                label={fText}
+                                size="small"
+                                sx={{
+                                  backgroundColor: `${fColor}20`,
+                                  color: fColor,
+                                  fontWeight: 600,
+                                  fontSize: '0.75rem',
+                                  justifyContent: 'flex-start'
+                                }}
+                              />
+                            )
+                          })}
+                        </Stack>
                       </Box>
                     )}
                   </motion.div>

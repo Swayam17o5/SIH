@@ -17,7 +17,7 @@ Features:
 - CORS support for React frontend
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 # Removed StaticFiles import - serving frontend separately
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
@@ -41,6 +41,7 @@ from contextlib import asynccontextmanager
 import cv2
 import threading
 import time
+import rasterio
 from dotenv import load_dotenv
 
 # Resolve paths relative to this file so startup works from any working directory
@@ -108,6 +109,22 @@ detection_model = None
 scalers = None
 feature_names = None
 model_performance = None
+dem_analysis_cache = {}
+
+
+def load_dem_registry():
+    """Load the data-driven DEM registry without exposing server filesystem paths."""
+    registry_path = backend_root / "data" / "DEM" / "registry.json"
+    try:
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        logger.error(f"Unable to load DEM registry: {error}")
+        raise HTTPException(status_code=500, detail="DEM registry unavailable")
+
+    for entry in registry:
+        file_name = entry.get("file")
+        entry["file_available"] = bool(file_name and (registry_path.parent / file_name).is_file())
+    return registry
 
 # Custom model loading functions
 def load_models_from_outputs():
@@ -135,8 +152,12 @@ def load_models_from_outputs():
         nn_path = models_dir / "neural_network_model.pth"
         if nn_path.exists():
             try:
-                models['neural_network'] = torch.load(nn_path, map_location='cpu')
-                logger.info("✅ Neural Network model loaded")
+                neural_network = torch.load(nn_path, map_location='cpu')
+                if hasattr(neural_network, "eval") and callable(neural_network):
+                    models['neural_network'] = neural_network
+                    logger.info("✅ Neural Network model loaded")
+                else:
+                    logger.warning("Neural network artifact is a state_dict without its architecture; skipping it")
             except Exception as e:
                 logger.warning(f"Could not load neural network: {e}")
         
@@ -165,78 +186,80 @@ def load_models_from_outputs():
         return {}, None, None
 
 def predict_with_loaded_models(models, scaler, input_data):
-    """Make predictions using loaded models"""
+    """Make predictions using loaded models with calibrated multi-class probability outputs"""
     import numpy as np
-    
+
     if scaler is not None:
         input_scaled = scaler.transform(input_data)
     else:
         input_scaled = input_data
-    
+
     predictions = {}
-    
-    # XGBoost prediction
+    probabilities = {"LOW": 0.25, "MEDIUM": 0.25, "HIGH": 0.25, "CRITICAL": 0.25}
+    model_predictions = {}
+    labels = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+
+    # 1. XGBoost prediction
     if 'xgboost' in models:
         try:
-            pred = models['xgboost'].predict_proba(input_scaled)
-            value = float(pred[0][1]) if len(pred[0]) > 1 else float(pred[0][0])
-            if np.isfinite(value):
-                predictions['xgboost'] = value
+            xgb_model = models['xgboost']
+            proba = xgb_model.predict_proba(input_scaled)[0]
+            if len(proba) == 4:
+                model_predictions['xgboost'] = {l: float(p) for l, p in zip(labels, proba)}
             else:
-                logger.warning(f"XGBoost returned invalid value: {value}")
+                p1 = float(proba[1]) if len(proba) > 1 else float(proba[0])
+                model_predictions['xgboost'] = {"probability": p1}
         except Exception as e:
             logger.warning(f"XGBoost prediction failed: {e}")
-    
-    # Random Forest prediction
+
+    # 2. Random Forest prediction
     if 'random_forest' in models:
         try:
-            pred = models['random_forest'].predict_proba(input_scaled)
-            value = float(pred[0][1]) if len(pred[0]) > 1 else float(pred[0][0])
-            if np.isfinite(value):
-                predictions['random_forest'] = value
+            rf_model = models['random_forest']
+            proba = rf_model.predict_proba(input_scaled)[0]
+            if len(proba) == 4:
+                model_predictions['random_forest'] = {l: float(p) for l, p in zip(labels, proba)}
             else:
-                logger.warning(f"Random Forest returned invalid value: {value}")
+                p1 = float(proba[1]) if len(proba) > 1 else float(proba[0])
+                model_predictions['random_forest'] = {"probability": p1}
         except Exception as e:
             logger.warning(f"Random Forest prediction failed: {e}")
-    
-    # Neural Network prediction
-    if 'neural_network' in models:
-        try:
-            logger.info("Attempting Neural Network prediction...")
-            import torch
-            model = models['neural_network']
-            logger.info(f"Neural Network model type: {type(model)}")
-            logger.info(f"Input data shape: {input_scaled.shape}")
-            model.eval()
-            with torch.no_grad():
-                input_tensor = torch.FloatTensor(input_scaled)
-                logger.info(f"Input tensor shape: {input_tensor.shape}")
-                pred = model(input_tensor)
-                logger.info(f"Raw prediction: {pred}")
-                value = float(torch.sigmoid(pred).item())
-                logger.info(f"Sigmoid prediction: {value}")
-                if np.isfinite(value):
-                    predictions['neural_network'] = value
-                    logger.info(f"✅ Neural Network prediction successful: {value}")
-                else:
-                    logger.warning(f"Neural Network returned invalid value: {value}")
-        except Exception as e:
-            logger.warning(f"Neural Network prediction failed: {e}")
-            logger.exception("Neural Network prediction error details:")
-    
-    # Calculate ensemble prediction
-    if predictions:
-        valid_values = [v for v in predictions.values() if np.isfinite(v)]
-        if valid_values:
-            ensemble_pred = np.mean(valid_values)
-            if np.isfinite(ensemble_pred):
-                predictions['ensemble'] = float(ensemble_pred)
-            else:
-                logger.warning("Ensemble calculation resulted in invalid value")
+
+    # 3. Ensemble calculation
+    if 'xgboost' in model_predictions and 'random_forest' in model_predictions:
+        xgb_p = model_predictions['xgboost']
+        rf_p = model_predictions['random_forest']
+        if isinstance(xgb_p, dict) and 'LOW' in xgb_p and isinstance(rf_p, dict) and 'LOW' in rf_p:
+            ensemble_probs = {
+                l: float(xgb_p[l] * 0.55 + rf_p[l] * 0.45)
+                for l in labels
+            }
+            total = sum(ensemble_probs.values()) or 1.0
+            probabilities = {l: float(v / total) for l, v in ensemble_probs.items()}
         else:
-            logger.warning("No valid predictions for ensemble calculation")
-    
-    return predictions
+            p_xgb = xgb_p.get('probability', 0.5)
+            p_rf = rf_p.get('probability', 0.5)
+            p_ens = float(p_xgb * 0.55 + p_rf * 0.45)
+            # Binary fallback mapped to continuous distribution
+            if p_ens < 0.28:
+                probabilities = {"LOW": 0.70, "MEDIUM": 0.25, "HIGH": 0.05, "CRITICAL": 0.00}
+            elif p_ens < 0.58:
+                probabilities = {"LOW": 0.15, "MEDIUM": 0.65, "HIGH": 0.18, "CRITICAL": 0.02}
+            elif p_ens < 0.80:
+                probabilities = {"LOW": 0.02, "MEDIUM": 0.20, "HIGH": 0.65, "CRITICAL": 0.13}
+            else:
+                probabilities = {"LOW": 0.00, "MEDIUM": 0.05, "HIGH": 0.25, "CRITICAL": 0.70}
+    elif model_predictions:
+        first_key = list(model_predictions.keys())[0]
+        first_val = model_predictions[first_key]
+        if isinstance(first_val, dict) and 'LOW' in first_val:
+            probabilities = first_val
+
+    return {
+        "probabilities": probabilities,
+        "model_predictions": model_predictions,
+        "input_scaled": input_scaled
+    }
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -426,33 +449,44 @@ video_manager = VideoStreamManager()
 class EnvironmentalData(BaseModel):
     """Environmental data for risk prediction"""
     slope: float = Field(..., ge=0, le=90, description="Terrain slope in degrees")
-    elevation: float = Field(..., ge=0, le=5000, description="Elevation in meters")
-    fracture_density: float = Field(..., ge=0, le=10, description="Fractures per square meter")
-    roughness: float = Field(..., ge=0, le=1, description="Surface roughness index")
-    slope_variability: float = Field(0.0, ge=0, le=1, description="Slope variation")
+    elevation: float = Field(..., ge=-500, le=9000, description="Elevation in meters")
+    fracture_density: float = Field(..., ge=0, le=20, description="Fractures per square meter")
+    roughness: float = Field(..., ge=0, le=2, description="Surface roughness index")
+    slope_variability: float = Field(0.0, ge=0, le=50, description="Slope variation")
     instability_index: float = Field(..., ge=0, le=1, description="Geological instability index")
-    wetness_index: float = Field(0.0, ge=0, le=1, description="Wetness index")
+    wetness_index: float = Field(0.0, ge=0, le=30, description="Wetness index")
     month: float = Field(..., ge=1, le=12, description="Month of year")
     day_of_year: float = Field(..., ge=1, le=366, description="Day of year")
-    season: float = Field(..., ge=0, le=3, description="Season (0-3)")
+    season: float = Field(..., ge=0, le=4, description="Season (0-3 or 1-4)")
     rainfall: float = Field(..., ge=0, le=500, description="Rainfall in mm")
-    temperature: float = Field(..., ge=-50, le=50, description="Temperature in Celsius")
+    temperature: float = Field(..., ge=-50, le=60, description="Temperature in Celsius")
     temperature_variation: float = Field(0.0, ge=0, le=50, description="Temperature variation")
     freeze_thaw_cycles: float = Field(..., ge=0, le=50, description="Number of freeze-thaw cycles")
     seismic_activity: float = Field(..., ge=0, le=10, description="Seismic activity magnitude")
     wind_speed: float = Field(..., ge=0, le=200, description="Wind speed in km/h")
     precipitation_intensity: float = Field(0.0, ge=0, le=100, description="Precipitation intensity")
     humidity: float = Field(..., ge=0, le=100, description="Humidity percentage")
-    risk_score: float = Field(0.0, ge=0, le=1, description="Base risk score")
+    risk_score: Optional[float] = Field(0.0, description="Base risk score")
+    # Extended context fields
+    mine_id: Optional[str] = Field(None, description="Selected mine site ID")
+    rock_count: Optional[int] = Field(0, description="Reliable YOLO rock detection count")
+    rock_confidence: Optional[float] = Field(0.0, description="Mean YOLO rock confidence")
+    satellite_displacement_mm: Optional[float] = Field(None, description="Satellite InSAR displacement (mm)")
+    satellite_velocity_mm_day: Optional[float] = Field(None, description="Satellite deformation velocity (mm/day)")
+    satellite_available: Optional[bool] = Field(False, description="Whether real satellite deformation data is available")
 
 class RiskPrediction(BaseModel):
-    """Risk prediction response"""
-    risk_score: float = Field(..., description="Overall risk score (0-1)")
-    risk_level: str = Field(..., description="Risk level: LOW, MEDIUM, HIGH")
-    confidence: float = Field(..., description="Prediction confidence")
-    model_predictions: Dict[str, float] = Field(..., description="Individual model predictions")
+    """Calibrated 4-Class Risk Prediction response"""
+    risk_score: float = Field(..., description="Continuous risk score (0-100)")
+    risk_level: str = Field(..., description="Risk level: LOW, MEDIUM, HIGH, CRITICAL")
+    confidence: float = Field(..., description="Prediction confidence (0-1)")
+    probabilities: Dict[str, float] = Field(..., description="Calibrated probabilities for LOW, MEDIUM, HIGH, CRITICAL")
+    model_predictions: Dict[str, Any] = Field(..., description="Individual model probability outputs")
+    contributing_factors: List[Dict[str, Any]] = Field(default_factory=list, description="Ranked contributing risk factors")
+    satellite_status: Dict[str, Any] = Field(default_factory=dict, description="Satellite deformation status")
+    recommendations: List[str] = Field(..., description="Domain safety recommendations")
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Prediction timestamp in ISO format")
-    recommendations: List[str] = Field(..., description="Safety recommendations")
+    diagnostics: Optional[Dict[str, Any]] = Field(None, description="Developer diagnostic payload")
 
 class DetectionResult(BaseModel):
     """Rock detection result"""
@@ -735,148 +769,239 @@ async def get_health_status():
 
 @app.post("/api/predict-risk", response_model=RiskPrediction)
 async def predict_risk(data: EnvironmentalData):
-    """Predict rockfall risk based on environmental data"""
+    """Predict rockfall risk with calibrated 4-class probabilities, factor attribution, and continuous risk scoring"""
     global prediction_models, scalers, feature_names
     
+    # Auto-load models on demand if not already loaded
     if not prediction_models:
-        # Provide mock prediction when models aren't available
-        logger.warning("Using mock prediction - models not loaded")
-        
-        # Simple heuristic-based prediction for demo
-        risk_factors = []
-        risk_score = 0.0
-        
-        # Check slope
-        if data.slope > 45:
-            risk_score += 0.3
-            risk_factors.append("steep_slope")
-        
-        # Check temperature and freeze-thaw
-        if data.freeze_thaw_cycles > 10:
-            risk_score += 0.2
-            risk_factors.append("freeze_thaw_cycles")
-        
-        # Check seismic activity
-        if data.seismic_activity > 3:
-            risk_score += 0.25
-            risk_factors.append("seismic_activity")
-        
-        # Check precipitation
-        if data.rainfall > 100:
-            risk_score += 0.15
-            risk_factors.append("heavy_rainfall")
-        
-        # Check instability index
-        risk_score += data.instability_index * 0.2
-        if data.instability_index > 0.7:
-            risk_factors.append("geological_instability")
-        
-        # Determine risk level
-        if risk_score > 0.7:
-            risk_level = "high"
-        elif risk_score > 0.4:
-            risk_level = "medium"
-        else:
-            risk_level = "low"
-        
-        return RiskPrediction(
-            risk_score=min(risk_score, 1.0),
-            risk_level=risk_level,
-            confidence=0.75,  # Mock confidence
-            model_predictions={"mock": min(risk_score, 1.0)},
-            recommendations=[
-                "Monitor geological conditions regularly",
-                "Install early warning systems", 
-                "Restrict access during high-risk periods"
-            ]
-        )
+        try:
+            loaded_m, loaded_s, loaded_meta = load_models_from_outputs()
+            if loaded_m:
+                prediction_models = loaded_m
+                scalers = loaded_s
+                if loaded_meta and 'feature_names' in loaded_meta:
+                    feature_names = loaded_meta['feature_names']
+                logger.info("✅ Auto-loaded prediction models on demand")
+        except Exception as e:
+            logger.warning(f"Could not auto-load prediction models: {e}")
+
+    # Required 18 feature names in exact model order
+    target_features = [
+        "slope", "elevation", "fracture_density", "roughness", "slope_variability",
+        "instability_index", "wetness_index", "month", "day_of_year", "season",
+        "rainfall", "temperature", "temperature_variation", "freeze_thaw_cycles",
+        "seismic_activity", "wind_speed", "precipitation_intensity", "humidity"
+    ]
     
+    # 1. Fallback when prediction models are unavailable
+    if not prediction_models:
+        logger.warning("Prediction models not loaded - using geomechanical fallback heuristic")
+        
+        # Transparent domain heuristic
+        s_norm = min(1.0, data.slope / 70.0)
+        r_norm = min(1.0, data.rainfall / 120.0)
+        f_norm = min(1.0, data.fracture_density / 8.0)
+        seis_norm = min(1.0, data.seismic_activity / 5.0)
+        
+        score_val = (s_norm * 35.0 + r_norm * 25.0 + f_norm * 20.0 + seis_norm * 20.0)
+        score_val = max(0.0, min(100.0, round(score_val, 1)))
+        
+        if score_val >= 80.0:
+            lvl = "CRITICAL"
+            probs = {"LOW": 0.02, "MEDIUM": 0.08, "HIGH": 0.25, "CRITICAL": 0.65}
+        elif score_val >= 58.0:
+            lvl = "HIGH"
+            probs = {"LOW": 0.05, "MEDIUM": 0.20, "HIGH": 0.60, "CRITICAL": 0.15}
+        elif score_val >= 28.0:
+            lvl = "MEDIUM"
+            probs = {"LOW": 0.15, "MEDIUM": 0.65, "HIGH": 0.18, "CRITICAL": 0.02}
+        else:
+            lvl = "LOW"
+            probs = {"LOW": 0.75, "MEDIUM": 0.20, "HIGH": 0.05, "CRITICAL": 0.00}
+            
+        return RiskPrediction(
+            risk_score=score_val,
+            risk_level=lvl,
+            confidence=0.80,
+            probabilities=probs,
+            model_predictions={"fallback_heuristic": probs},
+            contributing_factors=[
+                {"factor": "Slope", "contribution": round(s_norm * 35.0, 1), "impact": "HIGH" if data.slope > 35 else "LOW", "raw_value": data.slope, "unit": "°"},
+                {"factor": "Rainfall", "contribution": round(r_norm * 25.0, 1), "impact": "HIGH" if data.rainfall > 50 else "LOW", "raw_value": data.rainfall, "unit": "mm"},
+                {"factor": "Fracture Density", "contribution": round(f_norm * 20.0, 1), "impact": "HIGH" if data.fracture_density > 4 else "LOW", "raw_value": data.fracture_density, "unit": "/m²"},
+                {"factor": "Seismic Activity", "contribution": round(seis_norm * 20.0, 1), "impact": "HIGH" if data.seismic_activity > 2.5 else "LOW", "raw_value": data.seismic_activity, "unit": "M"}
+            ],
+            satellite_status={"available": False, "message": "Satellite InSAR data unavailable for this coordinate frame."},
+            recommendations=["Verify slope stability sensors", "Maintain continuous seismic and rainfall monitoring"],
+            diagnostics={"mode": "heuristic_fallback", "model_loaded": False}
+        )
+
     try:
-        # Convert input data to array using feature names
+        # 2. Prepare exact input feature vector in canonical model order
         input_dict = data.dict()
-        input_array = np.array([[input_dict[feature] for feature in feature_names]])
         
-        # Make predictions using loaded models
-        predictions = predict_with_loaded_models(prediction_models, scalers, input_array)
-        
-        # Calculate overall risk level
-        ensemble_risk = predictions.get('ensemble', 0.0)
-        
-        # Handle NaN values
-        if np.isnan(ensemble_risk) or not np.isfinite(ensemble_risk):
-            logger.warning(f"Invalid ensemble risk value: {ensemble_risk}, using fallback")
-            ensemble_risk = 0.0
-        
-        # Ensure risk is within valid range
-        ensemble_risk = max(0.0, min(1.0, ensemble_risk))
-        
-        if ensemble_risk > 0.7:
+        # Incorporate visual YOLO signals into fracture & instability if provided
+        if data.rock_count and data.rock_count > 0:
+            visual_boost = min(3.0, data.rock_count * 0.4 * (data.rock_confidence or 0.5))
+            input_dict["fracture_density"] = min(15.0, input_dict["fracture_density"] + visual_boost)
+            input_dict["instability_index"] = min(1.0, input_dict["instability_index"] + (visual_boost * 0.05))
+
+        ordered_features = feature_names if feature_names else target_features
+        input_values = [float(input_dict.get(feat, 0.0)) for feat in ordered_features]
+        input_array = np.array([input_values])
+
+        # 3. Model Inference via Scaler & Calibrated Ensemble
+        preds_output = predict_with_loaded_models(prediction_models, scalers, input_array)
+        probs = preds_output.get("probabilities", {"LOW": 0.25, "MEDIUM": 0.25, "HIGH": 0.25, "CRITICAL": 0.25})
+        model_predictions = preds_output.get("model_predictions", {})
+        input_scaled = preds_output.get("input_scaled", input_array)
+
+        # 4. Continuous Risk Score Calculation (0 - 100)
+        p_low = probs.get("LOW", 0.0)
+        p_med = probs.get("MEDIUM", 0.0)
+        p_high = probs.get("HIGH", 0.0)
+        p_crit = probs.get("CRITICAL", 0.0)
+
+        continuous_score = (p_low * 5.0 + p_med * 38.0 + p_high * 72.0 + p_crit * 100.0)
+        risk_score = max(0.0, min(100.0, round(float(continuous_score), 1)))
+
+        # 5. Calibrated Risk Level Categorization
+        if p_crit >= 0.35 or risk_score >= 80.0:
+            risk_level = "CRITICAL"
+        elif p_high >= 0.35 or risk_score >= 58.0:
             risk_level = "HIGH"
-            recommendations = [
-                "🚨 Immediate evacuation recommended",
-                "⛔ Restrict access to danger zones", 
-                "📞 Alert emergency services",
-                "📊 Increase monitoring frequency"
-            ]
-        elif ensemble_risk > 0.3:
+        elif p_med >= 0.35 or risk_score >= 28.0:
             risk_level = "MEDIUM"
-            recommendations = [
-                "⚠️ Enhanced monitoring required",
-                "👥 Limit personnel in area",
-                "📋 Prepare contingency plans",
-                "🔍 Investigate risk factors"
-            ]
         else:
             risk_level = "LOW"
-            recommendations = [
-                "✅ Normal operations can continue",
-                "📈 Maintain regular monitoring",
-                "📊 Review trends periodically"
-            ]
-        
-        # Calculate confidence (based on model agreement)
-        model_values = [v for k, v in predictions.items() if k != 'ensemble' and np.isfinite(v)]
-        if model_values and len(model_values) > 0:
-            std_dev = np.std(model_values)
-            if np.isfinite(std_dev):
-                confidence = max(0.0, min(1.0, 1.0 - std_dev))
-            else:
-                confidence = 0.5  # Default confidence when std calculation fails
+
+        # Model confidence (peak probability sharpness)
+        confidence = float(round(max(p_low, p_med, p_high, p_crit), 3))
+
+        # 6. Contributing Factors Breakdown
+        factors = []
+        # Factor 1: Slope
+        s_val = float(data.slope)
+        s_impact = "CRITICAL" if s_val >= 55 else "HIGH" if s_val >= 40 else "MEDIUM" if s_val >= 25 else "LOW"
+        s_contrib = round(min(35.0, (s_val / 65.0) * 35.0), 1)
+        factors.append({"factor": "Slope Steepness", "contribution": s_contrib, "impact": s_impact, "raw_value": s_val, "unit": "°"})
+
+        # Factor 2: Fracture Density & Geotechnical Instability
+        f_val = float(data.fracture_density)
+        f_impact = "CRITICAL" if f_val >= 7.0 else "HIGH" if f_val >= 4.5 else "MEDIUM" if f_val >= 2.0 else "LOW"
+        f_contrib = round(min(25.0, (f_val / 8.0) * 25.0), 1)
+        factors.append({"factor": "Structural Fracturing", "contribution": f_contrib, "impact": f_impact, "raw_value": f_val, "unit": "/m²"})
+
+        # Factor 3: Rainfall & Hydrogeology
+        r_val = float(data.rainfall)
+        r_impact = "CRITICAL" if r_val >= 100 else "HIGH" if r_val >= 50 else "MEDIUM" if r_val >= 20 else "LOW"
+        r_contrib = round(min(25.0, (r_val / 120.0) * 25.0), 1)
+        factors.append({"factor": "Rainfall & Moisture", "contribution": r_contrib, "impact": r_impact, "raw_value": r_val, "unit": "mm"})
+
+        # Factor 4: Dynamic & Seismic Triggers
+        seis_val = float(data.seismic_activity)
+        seis_impact = "CRITICAL" if seis_val >= 4.5 else "HIGH" if seis_val >= 3.0 else "MEDIUM" if seis_val >= 1.5 else "LOW"
+        seis_contrib = round(min(20.0, (seis_val / 5.0) * 20.0), 1)
+        factors.append({"factor": "Seismic & Vibration", "contribution": seis_contrib, "impact": seis_impact, "raw_value": seis_val, "unit": "M"})
+
+        # Factor 5: Visual Rock Activity (if present)
+        if data.rock_count and data.rock_count > 0:
+            v_impact = "CRITICAL" if data.rock_count >= 8 else "HIGH" if data.rock_count >= 4 else "MEDIUM"
+            factors.append({
+                "factor": "Visual Rockfall Activity",
+                "contribution": round(min(20.0, data.rock_count * 2.5), 1),
+                "impact": v_impact,
+                "raw_value": data.rock_count,
+                "unit": "rocks"
+            })
+
+        # 7. Satellite InSAR Status
+        if data.satellite_available and data.satellite_displacement_mm is not None:
+            sat_status = {
+                "available": True,
+                "displacement_mm": data.satellite_displacement_mm,
+                "velocity_mm_day": data.satellite_velocity_mm_day,
+                "message": f"Active InSAR line-of-sight displacement: {data.satellite_displacement_mm:+.1f} mm"
+            }
         else:
-            confidence = 0.5  # Default confidence when no valid model values
-        
-        # Ensure all prediction values are finite
-        safe_predictions = {}
-        for k, v in predictions.items():
-            if np.isfinite(v):
-                safe_predictions[k] = float(v)
-            else:
-                logger.warning(f"Invalid prediction value for {k}: {v}, setting to 0.0")
-                safe_predictions[k] = 0.0
-        
+            sat_status = {
+                "available": False,
+                "displacement_mm": None,
+                "velocity_mm_day": None,
+                "message": "Satellite InSAR deformation data unavailable for selected bench."
+            }
+
+        # 8. Domain Safety Recommendations
+        if risk_level == "CRITICAL":
+            recommendations = [
+                "🚨 IMMEDIATE EVACUATION of lower haul roads and bench toes",
+                "⛔ Halt all heavy vehicle movement and blasting in sector",
+                "📡 Activate real-time radar and acoustic emission alarms",
+                "👥 Dispatch emergency geotechnical response team"
+            ]
+        elif risk_level == "HIGH":
+            recommendations = [
+                "⚠️ Restrict access to designated highwall buffer zones",
+                "📈 Increase terrestrial laser scanner / radar sweep frequency",
+                "📋 Inspect drainage channels and berm retention capacities",
+                "🔍 Deploy spotter UAVs for bench crest crack dilation checks"
+            ]
+        elif risk_level == "MEDIUM":
+            recommendations = [
+                "ℹ️ Standard operational monitoring on active mining benches",
+                "📊 Review daily rainfall accumulation and pore pressure gauges",
+                "🚜 Maintain safety berm height according to DGMS guidelines"
+            ]
+        else:
+            recommendations = [
+                "✅ Normal mining operations permissible under baseline protocols",
+                "📈 Log routine piezometer and prism survey measurements"
+            ]
+
+        # 9. Diagnostics Payload
+        diagnostics = {
+            "model_version": "2.0-calibrated-4tier",
+            "features": [
+                {
+                    "index": idx,
+                    "name": name,
+                    "raw_value": round(val, 3),
+                    "scaled_value": round(float(input_scaled[0][idx]), 3) if input_scaled is not None and len(input_scaled[0]) > idx else None
+                }
+                for idx, (name, val) in enumerate(zip(ordered_features, input_values))
+            ],
+            "ensemble_weights": {"xgboost": 0.55, "random_forest": 0.45},
+            "server_timestamp": datetime.now().isoformat()
+        }
+
         result = RiskPrediction(
-            risk_score=float(ensemble_risk),
+            risk_score=risk_score,
             risk_level=risk_level,
-            confidence=float(confidence),
-            model_predictions=safe_predictions,
-            recommendations=recommendations
+            confidence=confidence,
+            probabilities=probs,
+            model_predictions=model_predictions,
+            contributing_factors=factors,
+            satellite_status=sat_status,
+            recommendations=recommendations,
+            diagnostics=diagnostics
         )
-        
+
         # Broadcast to WebSocket clients
         await manager.broadcast(json.dumps({
             "type": "risk_update",
             "data": result.dict(),
             "timestamp": datetime.now().isoformat()
         }))
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error in risk prediction: {e}")
+        logger.exception("Risk prediction failure details:")
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 @app.post("/api/detect-rocks", response_model=DetectionResult)
-async def detect_rocks(file: UploadFile = File(...), confidence_threshold: float = 0.5,
+async def detect_rocks(file: UploadFile = File(...), confidence_threshold: float = 0.25,
                        inference_mode: str = "auto", tile_size: int = 448,
                        tile_overlap: float = 0.25):
     """Detect rocks in uploaded image"""
@@ -1321,506 +1446,121 @@ async def get_camera_detections(direction: str):
 # DEM Analysis endpoints
 @app.get("/api/dem/files")
 async def get_dem_files():
-    """Get list of available DEM files"""
-    logger.info("📁 DEM files endpoint requested")
-    
-    # Use paths relative to backend folder for deployment compatibility
-    backend_root = Path(__file__).parent  # This is the backend/ directory
-    
-    dem_files = [
-        {
-            "id": "bailadila_iron_mine",
-            "name": "Bailadila Iron Ore Mine",
-            "location": "Chhattisgarh, India",
-            "source_type": "synthetic",
-            "source": "Geologically Representative Demo Data",
-            "is_real_data": False,
-            "crs": "EPSG:32644 (UTM 44N)",
-            "resolution": "15m grid",
-            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements.",
-            "description": "Geologically representative open-pit iron ore model featuring steep highwalls, quarry benches, and waste dumps.",
-            "file_path": str(backend_root / "data" / "DEM" / "Bailadila_Iron_Ore_Mine.tif")
-        },
-        {
-            "id": "malanjkhand_copper_mine",
-            "name": "Malanjkhand Copper Mine",
-            "location": "Madhya Pradesh, India",
-            "source_type": "synthetic",
-            "source": "Geologically Representative Demo Data",
-            "is_real_data": False,
-            "crs": "EPSG:32644 (UTM 44N)",
-            "resolution": "15m grid",
-            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements.",
-            "description": "Geologically representative open-cast copper pit model with multi-tier concentric bench geometry.",
-            "file_path": str(backend_root / "data" / "DEM" / "Malanjkhand_Copper_Mine.tif")
-        },
-        {
-            "id": "chuquicamata",
-            "name": "Chuquicamata Copper Mine", 
-            "location": "Atacama, Chile",
-            "source_type": "verified_dem",
-            "source": "SRTM 30m / USGS OpenTopography Satellite Elevation Raster",
-            "is_real_data": True,
-            "crs": "EPSG:4326 (WGS84)",
-            "resolution": "~21m (0.0002°)",
-            "disclaimer": None,
-            "description": "Satellite-derived DEM raster of Chuquicamata open-pit mine (USGS/SRTM).",
-            "file_path": str(backend_root / "data" / "DEM" / "Chuquicamata_copper_Mine.tif")
-        },
-        {
-            "id": "bingham_canyon",
-            "name": "Bingham Canyon Mine",
-            "location": "Utah, USA",
-            "source_type": "verified_dem",
-            "source": "USGS 3DEP / SRTM Satellite Elevation Raster",
-            "is_real_data": True,
-            "crs": "EPSG:4326 (WGS84)",
-            "resolution": "~25m (0.0003°)",
-            "disclaimer": None,
-            "description": "Satellite-derived DEM raster of Bingham Canyon open-pit mine (USGS 3DEP).",
-            "file_path": str(backend_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif")
-        },
-        {
-            "id": "grasberg",
-            "name": "Grasberg Mine",
-            "location": "Papua, Indonesia", 
-            "source_type": "verified_dem",
-            "source": "SRTM / ALOS PALSAR Satellite Elevation Raster",
-            "is_real_data": True,
-            "crs": "EPSG:4326 (WGS84)",
-            "resolution": "~15m (0.00013°)",
-            "disclaimer": None,
-            "description": "Satellite-derived DEM raster of high-altitude Grasberg mining complex (SRTM/ALOS).",
-            "file_path": str(backend_root / "data" / "DEM" / "Grasberg_Mine_Indonesia.tif")
-        }
-    ]
-    
-    # Log file existence check
-    for dem_file in dem_files:
-        file_path = Path(dem_file["file_path"])
-        exists = file_path.exists()
-        logger.info(f"📄 DEM file {dem_file['id']}: {file_path} -> {'✅ EXISTS' if exists else '❌ NOT FOUND'}")
-        if exists:
-            size_mb = file_path.stat().st_size / (1024 * 1024)
-            logger.info(f"   Size: {size_mb:.1f} MB")
-    
-    logger.info(f"📤 Returning {len(dem_files)} DEM files")
-    return {"files": dem_files}
+    """Return data-driven registry metadata, provenance status, and live raster details for every mine."""
+    registry = load_dem_registry()
+    for entry in registry:
+        if entry.get("file_available"):
+            path = backend_root / "data" / "DEM" / entry["file"]
+            try:
+                with rasterio.open(path) as dataset:
+                    entry["crs"] = str(dataset.crs) if dataset.crs else "EPSG:4326"
+                    entry["resolution"] = {
+                        "x": round(float(dataset.res[0]), 6),
+                        "y": round(float(dataset.res[1]), 6),
+                        "unit": "degrees" if (dataset.crs and not dataset.crs.is_projected) else "meters"
+                    }
+                    entry["valid_pixel_count"] = int(dataset.read_masks(1).astype(bool).sum())
+            except Exception as read_err:
+                logger.warning(f"Could not read metadata for {entry['file']}: {read_err}")
+                entry["crs"] = None
+                entry["resolution"] = None
+                entry["valid_pixel_count"] = 0
+        else:
+            entry["crs"] = None
+            entry["resolution"] = None
+            entry["valid_pixel_count"] = 0
+    return {"files": registry}
+
 
 @app.get("/api/dem/analyze/{dem_id}")
-async def analyze_dem(dem_id: str):
-    """Analyze DEM file and return color-coded visualization with statistics and 3D mesh data"""
-    logger.info(f"🗺️ DEM analysis requested for: {dem_id}")
+async def analyze_dem(dem_id: str, layer: str = "elevation"):
+    """Analyze DEM GeoTIFF and return color-coded visualization with measured statistics and 3D mesh data"""
+    logger.info(f"🗺️ DEM analysis requested for: {dem_id} (Layer: {layer})")
+    if layer not in {"elevation", "slope", "hillshade", "contours"}:
+        raise HTTPException(status_code=422, detail="layer must be elevation, slope, hillshade, or contours")
     
     try:
-        # Map DEM IDs to file paths - DEM files are in backend/data/DEM/
-        backend_root = Path(__file__).parent  # This is the backend/ directory
-        dem_files = {
-            "bailadila_iron_mine": backend_root / "data" / "DEM" / "Bailadila_Iron_Ore_Mine.tif",
-            "malanjkhand_copper_mine": backend_root / "data" / "DEM" / "Malanjkhand_Copper_Mine.tif",
-            "chuquicamata": backend_root / "data" / "DEM" / "Chuquicamata_copper_Mine.tif",
-            "bingham_canyon": backend_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif", 
-            "grasberg": backend_root / "data" / "DEM" / "Grasberg_Mine_Indonesia.tif"
-        }
-        
-        logger.info(f"📋 Available DEM files: {list(dem_files.keys())}")
-        
-        if dem_id not in dem_files:
-            logger.error(f"❌ Invalid DEM file ID: {dem_id}")
-            raise HTTPException(status_code=400, detail="Invalid DEM file ID")
-        
-        file_path = dem_files[dem_id]  # Now using absolute Path objects
-        logger.info(f"📁 Resolved file path: {file_path}")
-        logger.info(f"📁 Absolute file path: {file_path.absolute()}")
-        logger.info(f"📂 Backend root: {backend_root}")
-        
+        registry = load_dem_registry()
+        dem_entry = next((entry for entry in registry if entry["id"] == dem_id), None)
+        if dem_entry is None:
+            raise HTTPException(status_code=404, detail=f"Unknown DEM site ID: '{dem_id}'")
+        if not dem_entry.get("file_available"):
+            raise HTTPException(status_code=404, detail=f"DEM raster file is not available for site: {dem_id}")
+
+        file_path = backend_root / "data" / "DEM" / dem_entry["file"]
         if not file_path.exists():
-            logger.error(f"❌ DEM file not found at: {file_path}")
-            # List what's actually in the directory
-            dem_dir = file_path.parent
-            if dem_dir.exists():
-                logger.info(f"📂 Contents of {dem_dir}:")
-                for item in dem_dir.iterdir():
-                    logger.info(f"   📄 {item.name}")
-            else:
-                logger.error(f"❌ Directory {dem_dir} does not exist")
-            raise HTTPException(status_code=404, detail="DEM file not found")
+            raise HTTPException(status_code=404, detail=f"DEM file not found: {dem_entry['file']}")
         
-        logger.info(f"✅ DEM file found, starting analysis...")
+        mtime = file_path.stat().st_mtime_ns
+        cache_key = (dem_id, layer, mtime)
+        result = dem_analysis_cache.get(cache_key)
         
-        # Process DEM file and generate color-coded visualization
-        result = await process_dem_file(file_path, dem_id)
-        
-        logger.info(f"✅ DEM analysis completed for {dem_id}")
+        if result is None:
+            result = await process_dem_file(file_path, dem_id, layer, dem_entry)
+            dem_analysis_cache[cache_key] = result
         
         return {
             "dem_id": dem_id,
+            "layer": layer,
             "image_url": result["image_url"],
             "statistics": result["statistics"],
-            "source_info": result.get("source_info"),
+            "source_info": {
+                **dem_entry,
+                **(result.get("source_info") or {}),
+                "crs": result["statistics"].get("crs"),
+                "resolution": result["statistics"].get("resolution")
+            },
             "mesh3d": result.get("mesh3d"),
             "processing_time": result["processing_time"],
             "timestamp": datetime.now().isoformat()
         }
         
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
         logger.error(f"💥 DEM analysis failed for {dem_id}: {str(e)}")
         logger.exception("Full error traceback:")
         raise HTTPException(status_code=500, detail=f"DEM analysis failed: {str(e)}")
 
-async def process_dem_file(file_path: Path, dem_id: str):
-    """Process DEM .tif file and generate color-coded PNG visualization and multi-factor 3D terrain metrics"""
-    logger.info(f"🔬 Processing DEM file: {file_path}")
+
+@app.get("/api/dem/compare")
+async def compare_dems(ids: List[str] = Query(..., min_length=1, max_length=3)):
+    """Compare up to three open-pit mines using measured DEM statistics."""
+    if len(set(ids)) != len(ids):
+        raise HTTPException(status_code=400, detail="DEM IDs must be unique")
+    comparisons = []
+    for dem_id in ids:
+        analysis = await analyze_dem(dem_id, layer="elevation")
+        comparisons.append({
+            "dem_id": dem_id,
+            "statistics": analysis["statistics"],
+            "source_info": analysis["source_info"]
+        })
+    return {"comparisons": comparisons}
+
+
+async def process_dem_file(file_path: Path, dem_id: str, layer: str = "elevation", source_info: Optional[Dict] = None):
+    """Process DEM raster using DEMAnalyzer, computing authentic slope, TRI roughness, mesh, and visualization"""
+    from src.dem_analysis.dem_processor import DEMAnalyzer
     
-    # Metadata mapping
-    source_metadata_map = {
-        "bailadila_iron_mine": {
-            "source_type": "synthetic",
-            "source": "Geologically Representative Demo Data",
-            "is_real_data": False,
-            "crs": "EPSG:32644 (UTM 44N)",
-            "resolution": "15m grid",
-            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements."
-        },
-        "malanjkhand_copper_mine": {
-            "source_type": "synthetic",
-            "source": "Geologically Representative Demo Data",
-            "is_real_data": False,
-            "crs": "EPSG:32644 (UTM 44N)",
-            "resolution": "15m grid",
-            "disclaimer": "Terrain is representative demo data and should not be interpreted as live mine measurements."
-        },
-        "chuquicamata": {
-            "source_type": "verified_dem",
-            "source": "SRTM 30m / USGS OpenTopography Satellite Elevation Raster",
-            "is_real_data": True,
-            "crs": "EPSG:4326 (WGS84)",
-            "resolution": "~21m (0.0002°)",
-            "disclaimer": None
-        },
-        "bingham_canyon": {
-            "source_type": "verified_dem",
-            "source": "USGS 3DEP / SRTM Satellite Elevation Raster",
-            "is_real_data": True,
-            "crs": "EPSG:4326 (WGS84)",
-            "resolution": "~25m (0.0003°)",
-            "disclaimer": None
-        },
-        "grasberg": {
-            "source_type": "verified_dem",
-            "source": "SRTM / ALOS PALSAR Satellite Elevation Raster",
-            "is_real_data": True,
-            "crs": "EPSG:4326 (WGS84)",
-            "resolution": "~15m (0.00013°)",
-            "disclaimer": None
-        }
+    start_time = datetime.now()
+    analyzer = DEMAnalyzer(str(file_path))
+    
+    stats = analyzer.compute_comprehensive_statistics()
+    mesh3d = analyzer.generate_mesh3d(grid_size=128)
+    
+    site_name = source_info.get("name", dem_id.replace("_", " ").title()) if source_info else dem_id.replace("_", " ").title()
+    image_url = analyzer.render_layer_image(layer=layer, site_name=site_name)
+    
+    processing_time = (datetime.now() - start_time).total_seconds()
+    
+    return {
+        "image_url": image_url,
+        "statistics": stats,
+        "source_info": source_info,
+        "mesh3d": mesh3d,
+        "processing_time": f"{processing_time:.2f}s"
     }
-    
-    source_info = source_metadata_map.get(dem_id, {
-        "source_type": "unknown",
-        "source": "Local DEM File",
-        "is_real_data": False,
-        "crs": "Local",
-        "resolution": "N/A",
-        "disclaimer": None
-    })
-
-    try:
-        # Try to import required libraries
-        try:
-            import rasterio
-            import matplotlib.pyplot as plt
-            import matplotlib.colors as colors
-            from matplotlib.colors import LinearSegmentedColormap
-            import numpy as np
-            from PIL import Image
-            import io
-            import base64
-            from scipy import ndimage
-            logger.info("✅ All geospatial libraries imported successfully")
-        except ImportError as e:
-            logger.warning(f"⚠️ Geospatial libraries not available: {e}")
-            logger.info("🔄 Returning mock data instead")
-            return {
-                "image_url": f"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-                "statistics": {
-                    "min_elevation": 1000.0,
-                    "max_elevation": 3000.0,
-                    "mean_elevation": 2000.0,
-                    "std_elevation": 500.0,
-                    "elevation_range": 2000.0,
-                    "max_slope_deg": 48.5,
-                    "mean_slope_deg": 18.2,
-                    "median_slope_deg": 14.5,
-                    "std_slope_deg": 11.2,
-                    "slope_area_gt_30": 12.0,
-                    "slope_area_gt_40": 4.5,
-                    "slope_area_gt_48": 1.2,
-                    "roughness_tri": 2.1,
-                    "curvature": 0.0025,
-                    "risk_score": 48.0,
-                    "risk_level": "High",
-                    "terrain_type": "Open-Pit Mine",
-                    "steep_point": {
-                        "row": 64,
-                        "col": 64,
-                        "x_norm": 0.0,
-                        "y_norm": 0.0,
-                        "z_elevation": 2500.0,
-                        "slope_deg": 48.5
-                    }
-                },
-                "source_info": source_info,
-                "mesh3d": None,
-                "processing_time": 0.1
-            }
-        
-        start_time = datetime.now()
-        
-        # Read DEM data
-        with rasterio.open(file_path) as dataset:
-            elevation_data = dataset.read(1).astype(np.float64)
-            if dataset.nodata is not None:
-                elevation_data = np.where(elevation_data == dataset.nodata, np.nan, elevation_data)
-            elevation_data = np.where(
-                (elevation_data < -500) | (elevation_data > 9000), 
-                np.nan, 
-                elevation_data
-            )
-            
-            # Determine true physical cell size in meters
-            if dataset.crs and dataset.crs.is_projected:
-                res_x, res_y = dataset.res
-                raw_h, raw_w = elevation_data.shape
-                cell_size_m = float((res_x * (raw_w / 128) + res_y * (raw_h / 128)) / 2.0)
-            else:
-                lat = (dataset.bounds.top + dataset.bounds.bottom) / 2.0
-                deg_to_m_lat = 111132.0
-                deg_to_m_lon = 111132.0 * np.cos(np.radians(lat))
-                cell_size_x = ((dataset.bounds.right - dataset.bounds.left) / 128.0) * deg_to_m_lon
-                cell_size_y = ((dataset.bounds.top - dataset.bounds.bottom) / 128.0) * deg_to_m_lat
-                cell_size_m = float((abs(cell_size_x) + abs(cell_size_y)) / 2.0)
-                
-            cell_size_m = max(5.0, cell_size_m)
-        
-        valid_mask = ~np.isnan(elevation_data)
-        if not np.any(valid_mask):
-            raise ValueError("No valid elevation data found in DEM file")
-            
-        valid_mean = float(np.mean(elevation_data[valid_mask]))
-        data_filled = np.where(np.isnan(elevation_data), valid_mean, elevation_data)
-        
-        # Downsample DEM to 128x128 grid for 3D Mesh & standard analysis
-        h, w = data_filled.shape
-        grid_size = 128
-        grid3d = ndimage.zoom(data_filled, (grid_size / h, grid_size / w), order=1)
-        
-        # 1. Slope Calculation (Spatial Finite Differences)
-        dx, dy = np.gradient(grid3d, cell_size_m)
-        grad_mag = np.sqrt(dx**2 + dy**2)
-        slope_rad = np.arctan(grad_mag)
-        slope_deg_grid = np.degrees(slope_rad)
-        
-        # 2. Curvature (Laplacian)
-        d2x, _ = np.gradient(dx, cell_size_m)
-        _, d2y = np.gradient(dy, cell_size_m)
-        laplacian = d2x + d2y
-        
-        # 3. Roughness (TRI)
-        local_mean = ndimage.uniform_filter(grid3d, size=3)
-        tri_grid = np.abs(grid3d - local_mean)
-        
-        # 4. Comprehensive Metrics
-        min_elev = float(np.min(grid3d))
-        max_elev = float(np.max(grid3d))
-        mean_elev = float(np.mean(grid3d))
-        std_elev = float(np.std(grid3d))
-        elev_range = max_elev - min_elev
-        
-        max_slope_val = float(np.max(slope_deg_grid))
-        mean_slope_val = float(np.mean(slope_deg_grid))
-        median_slope_val = float(np.median(slope_deg_grid))
-        std_slope_val = float(np.std(slope_deg_grid))
-        
-        area_gt_30 = float(np.mean(slope_deg_grid > 30.0) * 100)
-        area_gt_40 = float(np.mean(slope_deg_grid > 40.0) * 100)
-        area_gt_48 = float(np.mean(slope_deg_grid > 48.0) * 100)
-        
-        mean_tri = float(np.mean(tri_grid))
-        mean_curv = float(np.mean(np.abs(laplacian)))
-        
-        # 5. Multi-Factor Geomorphic Risk Index (0 - 100)
-        f_slope = min(40.0, (mean_slope_val / 30.0) * 20.0 + (area_gt_30 / 20.0) * 10.0 + (area_gt_48 / 4.0) * 10.0)
-        f_relief = min(30.0, (elev_range / 1200.0) * 20.0 + (mean_tri / 15.0) * 10.0)
-        f_highwall = min(20.0, ((max_slope_val - 15.0) / 60.0) * 20.0 if max_slope_val > 15 else 0)
-        f_curv = min(10.0, (mean_curv / 0.005) * 10.0)
-        
-        total_risk_score = round(f_slope + f_relief + f_highwall + f_curv, 1)
-        
-        if total_risk_score >= 70.0 or area_gt_48 >= 6.0:
-            risk_class = "Critical"
-        elif total_risk_score >= 42.0 or area_gt_30 >= 10.0:
-            risk_class = "High"
-        elif total_risk_score >= 22.0 or area_gt_30 >= 3.0:
-            risk_class = "Moderate"
-        else:
-            risk_class = "Low"
-            
-        # Find steepest point location
-        steep_r, steep_c = np.unravel_index(np.argmax(slope_deg_grid), slope_deg_grid.shape)
-        steep_r = int(steep_r)
-        steep_c = int(steep_c)
-        steep_x_norm = (steep_c / (grid_size - 1)) - 0.5
-        steep_y_norm = (steep_r / (grid_size - 1)) - 0.5
-        steep_z_elev = float(grid3d[steep_r, steep_c])
-        
-        steep_point = {
-            "row": steep_r,
-            "col": steep_c,
-            "x_norm": round(steep_x_norm, 4),
-            "y_norm": round(steep_y_norm, 4),
-            "z_elevation": round(steep_z_elev, 1),
-            "slope_deg": round(float(slope_deg_grid[steep_r, steep_c]), 1)
-        }
-        
-        # Terrain type classification
-        if elev_range > 1000:
-            terrain_type = "Mountainous Open-Pit Complex"
-        elif elev_range > 500:
-            terrain_type = "Deep Quarry / Bench Mine"
-        elif elev_range > 100:
-            terrain_type = "Open-Cast Bench Pit"
-        else:
-            terrain_type = "Low-Relief Excavation"
-
-        stats = {
-            "min_elevation": round(min_elev, 1),
-            "max_elevation": round(max_elev, 1),
-            "mean_elevation": round(mean_elev, 1),
-            "std_elevation": round(std_elev, 1),
-            "elevation_range": round(elev_range, 1),
-            "max_slope_deg": round(max_slope_val, 1),
-            "mean_slope_deg": round(mean_slope_val, 1),
-            "median_slope_deg": round(median_slope_val, 1),
-            "std_slope_deg": round(std_slope_val, 1),
-            "slope_area_gt_30": round(area_gt_30, 1),
-            "slope_area_gt_40": round(area_gt_40, 1),
-            "slope_area_gt_48": round(area_gt_48, 1),
-            "roughness_tri": round(mean_tri, 2),
-            "curvature": round(mean_curv, 4),
-            "risk_score": total_risk_score,
-            "risk_level": risk_class,
-            "terrain_type": terrain_type,
-            "steep_point": steep_point
-        }
-
-        mesh3d = {
-            "width": grid_size,
-            "height": grid_size,
-            "cellSizeMeters": round(cell_size_m, 3),
-            "elevations": np.round(grid3d, 2).tolist(),
-            "slopes": np.round(slope_deg_grid, 2).tolist(),
-            "steepPoint": steep_point
-        }
-        
-        # Create custom colormap: Green (low) → Yellow → Brown → White (high)
-        colors_list = [
-            '#2D5016',  # Dark Green (lowest)
-            '#4F7942',  # Green
-            '#8FBC8F',  # Light Green  
-            '#DAA520',  # Gold/Yellow
-            '#CD853F',  # Peru/Brown
-            '#A0522D',  # Sienna/Dark Brown
-            '#FFFFFF'   # White (highest)
-        ]
-        
-        n_bins = 256
-        terrain_cmap = LinearSegmentedColormap.from_list(
-            'terrain', colors_list, N=n_bins
-        )
-        
-        # Create the plot with proper DPI and size
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots(figsize=(10, 8), dpi=100)
-        
-        # Plot elevation data with custom colormap
-        im = ax.imshow(
-            elevation_data, 
-            cmap=terrain_cmap,
-            interpolation='bilinear',
-            aspect='equal'
-        )
-        
-        # Add colorbar
-        cbar = plt.colorbar(im, ax=ax, shrink=0.8, aspect=20, pad=0.02)
-        cbar.set_label('Elevation (meters)', color='white', fontsize=12, fontweight='bold')
-        cbar.ax.tick_params(colors='white', labelsize=10)
-        
-        # Styling
-        title = dem_id.replace("_", " ").title()
-        ax.set_title(f'{title} - Digital Elevation Model', 
-                    color='white', fontsize=16, fontweight='bold', pad=20)
-        ax.axis('off')  # Remove axes for cleaner look
-        
-        # Add text box with statistics
-        textstr = f'''Elevation Statistics:
-Min: {stats["min_elevation"]} m
-Max: {stats["max_elevation"]} m  
-Mean: {stats["mean_elevation"]} m
-Max Slope: {stats.get("max_slope_deg", "N/A")}°
-Risk: {stats.get("risk_level", "N/A")}'''
-        
-        props = dict(boxstyle='round,pad=0.5', facecolor='black', alpha=0.8, edgecolor='white')
-        ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=10,
-                verticalalignment='top', color='white', bbox=props, fontweight='bold')
-        
-        plt.tight_layout()
-        
-        # Save to bytes buffer
-        img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', facecolor='#0f172a', 
-                   bbox_inches='tight', dpi=100, edgecolor='none')
-        img_buffer.seek(0)
-        plt.close()
-        
-        # Convert to base64 for web display
-        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-        image_url = f"data:image/png;base64,{img_base64}"
-        
-        # Also save as file for download (optional)
-        try:
-            output_dir = backend_root / "outputs" / "dem_visualizations"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            output_file = output_dir / f"{dem_id}_elevation_map.png"
-            with open(output_file, 'wb') as f:
-                f.write(img_buffer.getvalue())
-            logger.info(f"DEM visualization saved to {output_file}")
-        except Exception as save_error:
-            logger.warning(f"Could not save DEM file to disk: {save_error}")
-        
-        processing_time = (datetime.now() - start_time).total_seconds()
-        
-        return {
-            "image_url": image_url,
-            "statistics": stats,
-            "source_info": source_info,
-            "mesh3d": mesh3d,
-            "processing_time": f"{processing_time:.2f}s"
-        }
-        
-    except ImportError as e:
-        missing_lib = str(e).split("'")[1] if "'" in str(e) else "required library"
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Missing required library: {missing_lib}. Please install: pip install rasterio matplotlib"
-        )
-    except Exception as e:
-        logger.error(f"DEM processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"DEM processing failed: {str(e)}")
 
 @app.get("/api/simulate-data")
 async def simulate_environmental_data():

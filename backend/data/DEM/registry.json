@@ -1,0 +1,370 @@
+[
+  {
+    "id": "bailadila_iron_mine",
+    "name": "Bailadila Iron Ore Mine",
+    "country": "India",
+    "region": "Chhattisgarh",
+    "mine_type": "Open-pit iron ore",
+    "file": "bailadila.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 18.6692,
+      "longitude": 81.2461
+    },
+    "elevation_bounds": {
+      "min_m": 459.0,
+      "max_m": 1268.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "malanjkhand_copper_mine",
+    "name": "Malanjkhand Copper Mine",
+    "country": "India",
+    "region": "Madhya Pradesh",
+    "mine_type": "Open-cast copper",
+    "file": "malanjkhand.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 22.0225,
+      "longitude": 80.718
+    },
+    "elevation_bounds": {
+      "min_m": 461.0,
+      "max_m": 654.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "rajmahal_open_cast_mine",
+    "name": "Rajmahal Open Cast Mine",
+    "country": "India",
+    "region": "Jharkhand",
+    "mine_type": "Open-cast coal",
+    "file": "rajmahal.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 25.045,
+      "longitude": 87.375
+    },
+    "elevation_bounds": {
+      "min_m": 34.0,
+      "max_m": 357.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "singrauli_open_cast_mines",
+    "name": "Singrauli Open-Cast Coal Mines",
+    "country": "India",
+    "region": "Madhya Pradesh / UP",
+    "mine_type": "Open-cast coal (Jayant/Nigahi)",
+    "file": "singrauli.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 24.12,
+      "longitude": 82.65
+    },
+    "elevation_bounds": {
+      "min_m": 260.0,
+      "max_m": 409.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "talcher_coalfields",
+    "name": "Talcher Coalfields",
+    "country": "India",
+    "region": "Odisha",
+    "mine_type": "Open-cast coal (Bhubaneswari/Ananta)",
+    "file": "talcher.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 20.95,
+      "longitude": 85.22
+    },
+    "elevation_bounds": {
+      "min_m": -121.0,
+      "max_m": 141.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "korba_coalfields",
+    "name": "Korba Coalfields",
+    "country": "India",
+    "region": "Chhattisgarh",
+    "mine_type": "Open-cast coal (Gevra/Kusmunda)",
+    "file": "korba.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 22.355,
+      "longitude": 82.585
+    },
+    "elevation_bounds": {
+      "min_m": 279.0,
+      "max_m": 354.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "chuquicamata",
+    "name": "Chuquicamata",
+    "country": "Chile",
+    "region": "Antofagasta",
+    "mine_type": "Open-pit copper",
+    "file": "chuquicamata.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": -22.285,
+      "longitude": -68.902
+    },
+    "elevation_bounds": {
+      "min_m": 2218.0,
+      "max_m": 3168.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "bingham_canyon",
+    "name": "Bingham Canyon Mine",
+    "country": "USA",
+    "region": "Utah",
+    "mine_type": "Open-pit copper (Kennecott)",
+    "file": "bingham_canyon.tif",
+    "file_available": true,
+    "source": "USGS 3DEP / SRTM 30m",
+    "source_type": "satellite_usgs",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 40.523,
+      "longitude": -112.151
+    },
+    "elevation_bounds": {
+      "min_m": 1399.9,
+      "max_m": 2790.3
+    },
+    "disclaimer": "Real USGS 3DEP / SRTM elevation model."
+  },
+  {
+    "id": "escondida",
+    "name": "Escondida Mine",
+    "country": "Chile",
+    "region": "Antofagasta",
+    "mine_type": "Open-pit copper",
+    "file": "escondida.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": -24.27,
+      "longitude": -69.07
+    },
+    "elevation_bounds": {
+      "min_m": 2658.0,
+      "max_m": 3489.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "grasberg",
+    "name": "Grasberg Mine",
+    "country": "Indonesia",
+    "region": "Papua",
+    "mine_type": "Open-pit copper and gold",
+    "file": "grasberg.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": -4.055,
+      "longitude": 137.116
+    },
+    "elevation_bounds": {
+      "min_m": 2345.0,
+      "max_m": 5029.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "oyu_tolgoi",
+    "name": "Oyu Tolgoi",
+    "country": "Mongolia",
+    "region": "South Gobi",
+    "mine_type": "Open-pit copper and gold",
+    "file": "oyu_tolgoi.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 43.01,
+      "longitude": 106.84
+    },
+    "elevation_bounds": {
+      "min_m": 1148.0,
+      "max_m": 1219.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "morenci",
+    "name": "Morenci Mine",
+    "country": "USA",
+    "region": "Arizona",
+    "mine_type": "Open-pit copper",
+    "file": "morenci.tif",
+    "file_available": true,
+    "source": "USGS 3DEP / SRTM 30m",
+    "source_type": "satellite_usgs",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 33.08,
+      "longitude": -109.365
+    },
+    "elevation_bounds": {
+      "min_m": 1153.1,
+      "max_m": 2286.7
+    },
+    "disclaimer": "Real USGS 3DEP / SRTM elevation model."
+  },
+  {
+    "id": "fimiston_super_pit",
+    "name": "Fimiston Super Pit",
+    "country": "Australia",
+    "region": "Western Australia",
+    "mine_type": "Open-pit gold (Kalgoorlie)",
+    "file": "fimiston.tif",
+    "file_available": true,
+    "source": "Geoscience Australia / SRTM 30m",
+    "source_type": "satellite_geoscience",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": -30.775,
+      "longitude": 121.503
+    },
+    "elevation_bounds": {
+      "min_m": 142.0,
+      "max_m": 455.0
+    },
+    "disclaimer": "Real Geoscience Australia / SRTM elevation model."
+  },
+  {
+    "id": "diavik",
+    "name": "Diavik Mine",
+    "country": "Canada",
+    "region": "Northwest Territories",
+    "mine_type": "Open-pit diamond",
+    "file": "diavik.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / CDEM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": 64.498,
+      "longitude": -110.29
+    },
+    "elevation_bounds": {
+      "min_m": 115.5,
+      "max_m": 469.0
+    },
+    "disclaimer": "Real Copernicus/CDEM satellite elevation model."
+  },
+  {
+    "id": "carajas",
+    "name": "Caraj\u00e1s Mine",
+    "country": "Brazil",
+    "region": "Par\u00e1",
+    "mine_type": "Open-pit iron ore",
+    "file": "carajas.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": -6.06,
+      "longitude": -50.18
+    },
+    "elevation_bounds": {
+      "min_m": 259.0,
+      "max_m": 811.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  },
+  {
+    "id": "jwaneng",
+    "name": "Jwaneng Mine",
+    "country": "Botswana",
+    "region": "Southern District",
+    "mine_type": "Open-pit diamond",
+    "file": "jwaneng.tif",
+    "file_available": true,
+    "source": "Copernicus DEM 30m (GLO-30) / SRTM",
+    "source_type": "satellite_copernicus",
+    "is_real_data": true,
+    "data_status": "available",
+    "resolution_m": "30m",
+    "coordinates": {
+      "latitude": -24.6,
+      "longitude": 24.71
+    },
+    "elevation_bounds": {
+      "min_m": 1021.0,
+      "max_m": 1236.0
+    },
+    "disclaimer": "Real Copernicus/SRTM 30m satellite elevation model."
+  }
+]

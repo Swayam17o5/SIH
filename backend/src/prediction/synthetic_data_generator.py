@@ -12,6 +12,13 @@ Key Features:
 - Configurable data generation parameters
 """
 
+import sys
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -83,263 +90,182 @@ class SyntheticDataGenerator:
         }
     
     def generate_terrain_features(self) -> pd.DataFrame:
-        """Generate critical terrain features"""
+        """Generate critical terrain features spanning all operational mine bench regimes"""
         n = self.config.n_samples
-        
-        # Generate base terrain features
         terrain_data = {}
         
-        # 1. Slope (primary risk factor)
-        # Higher slopes have exponentially higher risk
-        terrain_data['slope'] = np.random.exponential(scale=15, size=n)
-        terrain_data['slope'] = np.clip(terrain_data['slope'], *self.config.slope_range)
+        # 1. Slope: Mixture distribution covering gentle quarry floors (0-20°), benches (20-40°), highwalls (40-60°), and scarps (60-85°)
+        regimes = np.random.choice([0, 1, 2, 3], size=n, p=[0.30, 0.35, 0.25, 0.10])
+        slope_samples = np.zeros(n)
+        slope_samples[regimes == 0] = np.random.uniform(5.0, 20.0, size=(regimes == 0).sum())
+        slope_samples[regimes == 1] = np.random.uniform(20.0, 40.0, size=(regimes == 1).sum())
+        slope_samples[regimes == 2] = np.random.uniform(40.0, 60.0, size=(regimes == 2).sum())
+        slope_samples[regimes == 3] = np.random.uniform(60.0, 85.0, size=(regimes == 3).sum())
+        terrain_data['slope'] = np.clip(slope_samples, *self.config.slope_range)
         
-        # 2. Elevation (affects stability processes)
-        terrain_data['elevation'] = np.random.normal(loc=1200, scale=600, size=n)
+        # 2. Elevation (affects freeze-thaw and lithostatic stress)
+        terrain_data['elevation'] = np.random.normal(loc=1400, scale=650, size=n)
         terrain_data['elevation'] = np.clip(terrain_data['elevation'], *self.config.elevation_range)
         
-        # 3. Fracture Density (correlated with slope)
-        base_fracture = np.random.exponential(scale=2, size=n)
-        slope_influence = terrain_data['slope'] / 90 * 3  # Higher slopes = more fractures
-        terrain_data['fracture_density'] = base_fracture + slope_influence
-        terrain_data['fracture_density'] = np.clip(terrain_data['fracture_density'], 
-                                                  *self.config.fracture_density_range)
+        # 3. Fracture Density (correlated with slope and rock mass fatigue)
+        base_fracture = np.random.uniform(0.5, 7.0, size=n)
+        slope_influence = (terrain_data['slope'] / 90.0) * 3.0
+        terrain_data['fracture_density'] = np.clip(base_fracture + slope_influence, *self.config.fracture_density_range)
         
-        # 4. Roughness (surface irregularity)
-        terrain_data['roughness'] = np.random.beta(a=2, b=5, size=n)  # Skewed toward lower values
+        # 4. Roughness (TRI / surface irregularity)
+        terrain_data['roughness'] = np.clip(np.random.beta(a=2.5, b=3.5, size=n), 0.05, 0.95)
         
         # 5. Slope Variability (local terrain complexity)
-        terrain_data['slope_variability'] = np.random.gamma(shape=2, scale=5, size=n)
-        terrain_data['slope_variability'] = np.clip(terrain_data['slope_variability'], 0, 50)
+        terrain_data['slope_variability'] = np.clip(np.random.gamma(shape=2.5, scale=4.0, size=n), 0.5, 45.0)
         
         # 6. Instability Index (combined terrain assessment)
         instability = (
-            terrain_data['slope'] / 90 * 0.4 +
-            terrain_data['fracture_density'] / 10 * 0.3 +
-            terrain_data['roughness'] * 0.2 +
-            terrain_data['slope_variability'] / 50 * 0.1
+            (terrain_data['slope'] / 90.0) * 0.40 +
+            (terrain_data['fracture_density'] / 10.0) * 0.30 +
+            terrain_data['roughness'] * 0.20 +
+            (terrain_data['slope_variability'] / 45.0) * 0.10
         )
-        terrain_data['instability_index'] = instability + np.random.normal(0, 0.1, n)
-        terrain_data['instability_index'] = np.clip(terrain_data['instability_index'], 0, 1)
+        terrain_data['instability_index'] = np.clip(instability + np.random.normal(0, 0.04, n), 0.0, 1.0)
         
-        # 7. Topographic Wetness Index (water accumulation effects)
-        # Higher in lower areas and flatter regions
-        slope_radians = np.radians(terrain_data['slope'] + 0.1)  # Avoid division by zero
-        contributing_area = np.random.lognormal(mean=5, sigma=1, size=n)
-        terrain_data['wetness_index'] = np.log(contributing_area / np.tan(slope_radians))
-        terrain_data['wetness_index'] = np.clip(terrain_data['wetness_index'], 0, 20)
+        # 7. Topographic Wetness Index (water accumulation)
+        slope_radians = np.radians(terrain_data['slope'] + 0.1)
+        contributing_area = np.random.lognormal(mean=5.0, sigma=0.8, size=n)
+        terrain_data['wetness_index'] = np.clip(np.log(contributing_area / np.tan(slope_radians)), 0.5, 18.0)
         
         return pd.DataFrame(terrain_data)
     
     def generate_environmental_features(self) -> pd.DataFrame:
-        """Generate environmental trigger features"""
+        """Generate environmental trigger features with diverse operational weather & seismic conditions"""
         n = self.config.n_samples
         
-        # Generate temporal component
         start_date = pd.to_datetime(self.config.start_date)
         end_date = pd.to_datetime(self.config.end_date)
         dates = pd.date_range(start=start_date, end=end_date, periods=n)
         
         env_data = {'timestamp': dates}
-        
-        # Extract temporal features
         env_data['month'] = dates.month
         env_data['day_of_year'] = dates.dayofyear
-        env_data['season'] = ((dates.month - 1) // 3) + 1  # 1=Winter, 2=Spring, 3=Summer, 4=Fall
+        env_data['season'] = ((dates.month - 1) // 3) + 1
         
-        # 1. Rainfall (main trigger) - seasonal patterns
-        seasonal_rainfall = np.where(
-            env_data['season'] == 1, 50,  # Winter
-            np.where(env_data['season'] == 2, 80,  # Spring
-                    np.where(env_data['season'] == 3, 30, 70))  # Summer, Fall
-        )
-        rainfall_base = np.random.exponential(scale=seasonal_rainfall)
-        env_data['rainfall'] = np.clip(rainfall_base, *self.config.rainfall_range)
+        # 1. Rainfall: mixture of dry/light (0-20mm), moderate (20-60mm), and heavy/monsoon storms (60-180mm)
+        rain_regimes = np.random.choice([0, 1, 2], size=n, p=[0.45, 0.35, 0.20])
+        rain_samples = np.zeros(n)
+        rain_samples[rain_regimes == 0] = np.random.uniform(0.0, 20.0, size=(rain_regimes == 0).sum())
+        rain_samples[rain_regimes == 1] = np.random.uniform(20.0, 70.0, size=(rain_regimes == 1).sum())
+        rain_samples[rain_regimes == 2] = np.random.uniform(70.0, 180.0, size=(rain_regimes == 2).sum())
+        env_data['rainfall'] = np.clip(rain_samples, *self.config.rainfall_range)
         
-        # 2. Temperature Variation (thermal stress)
-        # Base temperature with seasonal variation
-        seasonal_temp = 20 + 15 * np.sin(2 * np.pi * env_data['day_of_year'] / 365)
-        daily_temp = seasonal_temp + np.random.normal(0, 5, n)
-        env_data['temperature'] = np.clip(daily_temp, *self.config.temperature_range)
+        # 2. Temperature & variation
+        seasonal_temp = 18.0 + 14.0 * np.sin(2 * np.pi * env_data['day_of_year'] / 365.0)
+        env_data['temperature'] = np.clip(seasonal_temp + np.random.normal(0, 4.0, n), *self.config.temperature_range)
+        env_data['temperature_variation'] = np.clip(np.abs(np.random.normal(12.0, 5.0, n)), 1.0, 35.0)
         
-        # Temperature variation (daily range)
-        env_data['temperature_variation'] = np.abs(np.random.normal(10, 5, n))
-        env_data['temperature_variation'] = np.clip(env_data['temperature_variation'], 0, 40)
-        
-        # 3. Freeze-Thaw Cycles (winter weathering)
-        # More likely in winter and spring, and at higher elevations
+        # 3. Freeze-Thaw Cycles
         freeze_thaw_base = np.where(
-            env_data['season'].isin([1, 2]), 
-            np.random.poisson(lam=8, size=n),  # Winter/Spring
-            np.random.poisson(lam=2, size=n)   # Summer/Fall
+            env_data['season'].isin([1, 2]),
+            np.random.poisson(lam=12, size=n),
+            np.random.poisson(lam=3, size=n)
         )
-        env_data['freeze_thaw_cycles'] = np.clip(freeze_thaw_base, 0, 50)
+        env_data['freeze_thaw_cycles'] = np.clip(freeze_thaw_base, 0, 45)
         
-        # 4. Seismic Activity (earthquake trigger)
-        # Most earthquakes are small, few are large
-        seismic_base = np.random.exponential(scale=1.5, size=n)
-        env_data['seismic_activity'] = np.clip(seismic_base, *self.config.seismic_magnitude_range)
+        # 4. Seismic Activity: mixture of quiet (0-1.5), blasting/minor tremors (1.5-3.5), and strong tremors (3.5-6.0)
+        seis_regimes = np.random.choice([0, 1, 2], size=n, p=[0.60, 0.28, 0.12])
+        seis_samples = np.zeros(n)
+        seis_samples[seis_regimes == 0] = np.random.uniform(0.0, 1.5, size=(seis_regimes == 0).sum())
+        seis_samples[seis_regimes == 1] = np.random.uniform(1.5, 3.8, size=(seis_regimes == 1).sum())
+        seis_samples[seis_regimes == 2] = np.random.uniform(3.8, 6.5, size=(seis_regimes == 2).sum())
+        env_data['seismic_activity'] = np.clip(seis_samples, *self.config.seismic_magnitude_range)
         
-        # 5. Wind Speed (environmental loading)
-        wind_seasonal = np.where(
-            env_data['season'].isin([1, 4]), 
-            np.random.gamma(shape=3, scale=15, size=n),  # Winter/Fall - windier
-            np.random.gamma(shape=2, scale=10, size=n)   # Spring/Summer
-        )
-        env_data['wind_speed'] = np.clip(wind_seasonal, *self.config.wind_speed_range)
+        # 5. Wind Speed
+        env_data['wind_speed'] = np.clip(np.random.gamma(shape=2.5, scale=12.0, size=n), 2.0, 110.0)
         
-        # 6. Precipitation intensity (rate of rainfall)
+        # 6. Precipitation Intensity (mm/h)
         env_data['precipitation_intensity'] = np.where(
             env_data['rainfall'] > 0,
-            env_data['rainfall'] / np.random.uniform(1, 24, n),  # mm/hour
-            0
+            np.clip(env_data['rainfall'] / np.random.uniform(2.0, 12.0, n), 0.1, 40.0),
+            0.0
         )
         
-        # 7. Humidity (affects rock weathering)
-        env_data['humidity'] = np.random.beta(a=6, b=4, size=n) * 100  # 0-100%
+        # 7. Humidity
+        env_data['humidity'] = np.clip(np.random.beta(a=5, b=3, size=n) * 100.0, 15.0, 98.0)
         
         return pd.DataFrame(env_data)
     
     def calculate_risk_score(self, terrain_df: pd.DataFrame, env_df: pd.DataFrame) -> np.ndarray:
-        """Calculate rockfall risk score based on all features with balanced distribution"""
+        """
+        Calculate rockfall risk score based on geomechanical and meteorological features.
+        Preserves true physical relationships between triggers and hazard levels.
+        """
+        # 1. Slope risk factor (0 to 1 scale, non-linear steepness hazard)
+        slope_rad = np.radians(terrain_df['slope'])
+        slope_factor = np.sin(slope_rad) ** 1.5  # Rapid rise above 35 deg
         
-        # Normalize features to 0-1 scale for risk calculation
-        normalized_features = {}
+        # 2. Geological structure factor
+        fracture_factor = np.clip(terrain_df['fracture_density'] / 8.0, 0, 1.2)
+        instability_factor = terrain_df['instability_index']
+        roughness_factor = np.clip(terrain_df['roughness'], 0, 1)
         
-        # Terrain features (higher values = higher risk)
-        normalized_features['slope'] = terrain_df['slope'] / 90
-        normalized_features['fracture_density'] = terrain_df['fracture_density'] / 10
-        normalized_features['instability_index'] = terrain_df['instability_index']
-        normalized_features['roughness'] = terrain_df['roughness']
+        # 3. Meteorological trigger factor
+        rain_factor = np.clip(env_df['rainfall'] / 120.0, 0, 1.5)
+        freeze_thaw_factor = np.clip(env_df['freeze_thaw_cycles'] / 25.0, 0, 1.2)
+        temp_var_factor = np.clip(env_df['temperature_variation'] / 25.0, 0, 1)
         
-        # Environmental features
-        normalized_features['rainfall'] = np.clip(env_df['rainfall'] / 200, 0, 1)
-        normalized_features['freeze_thaw_cycles'] = np.clip(env_df['freeze_thaw_cycles'] / 50, 0, 1)
-        normalized_features['seismic_activity'] = env_df['seismic_activity'] / 7
-        normalized_features['temperature_variation'] = np.clip(env_df['temperature_variation'] / 40, 0, 1)
-        normalized_features['wind_speed'] = env_df['wind_speed'] / 120
+        # 4. Seismic & dynamic trigger factor
+        seismic_factor = np.clip(env_df['seismic_activity'] / 5.0, 0, 1.5)
+        wind_factor = np.clip(env_df['wind_speed'] / 80.0, 0, 1)
         
-        # Calculate weighted risk score
-        risk_score = np.zeros(len(terrain_df))
+        # Base linear combination
+        terrain_weight = 0.45
+        weather_weight = 0.35
+        seismic_weight = 0.20
         
-        for feature, weight in self.feature_weights.items():
-            if feature in normalized_features:
-                risk_score += normalized_features[feature] * weight
+        terrain_score = (
+            slope_factor * 0.40 +
+            fracture_factor * 0.30 +
+            instability_factor * 0.20 +
+            roughness_factor * 0.10
+        )
         
-        # Add interaction effects (reduced to prevent over-concentration)
-        # Rainfall + slope interaction
-        rainfall_slope_interaction = (normalized_features['rainfall'] * 
-                                    normalized_features['slope'] * 0.08)
+        weather_score = (
+            rain_factor * 0.55 +
+            freeze_thaw_factor * 0.30 +
+            temp_var_factor * 0.15
+        )
         
-        # Freeze-thaw + fracture density interaction
-        freeze_fracture_interaction = (normalized_features['freeze_thaw_cycles'] * 
-                                     normalized_features['fracture_density'] * 0.06)
+        dynamic_score = (
+            seismic_factor * 0.75 +
+            wind_factor * 0.25
+        )
         
-        # Seismic + instability interaction
-        seismic_instability_interaction = (normalized_features['seismic_activity'] * 
-                                         normalized_features['instability_index'] * 0.05)
+        base_risk = (
+            terrain_score * terrain_weight +
+            weather_score * weather_weight +
+            dynamic_score * seismic_weight
+        )
         
-        risk_score += (rainfall_slope_interaction + 
-                      freeze_fracture_interaction + 
-                      seismic_instability_interaction)
+        # Multiplicative non-linear compound triggers
+        # (e.g. heavy rainfall or earthquake on steep fractured highwall creates critical failure)
+        compound_trigger = (
+            (slope_factor * rain_factor * 0.25) +
+            (fracture_factor * seismic_factor * 0.20) +
+            (freeze_thaw_factor * fracture_factor * 0.15)
+        )
         
-        # Apply power transformation to spread distribution more evenly
-        # This helps create more balanced low/medium/high risk samples
-        risk_score = np.power(risk_score, 0.7)  # Reduces concentration in low values
+        final_risk = base_risk + compound_trigger
         
-        # Add controlled noise to prevent clustering
-        risk_score += np.random.normal(0, 0.08, len(terrain_df))
+        # Small measurement noise
+        final_risk += np.random.normal(0, 0.03, len(terrain_df))
+        final_risk = np.clip(final_risk, 0.0, 1.0)
         
-        # Ensure 0-1 range
-        risk_score = np.clip(risk_score, 0, 1)
-        
-        # Force balanced distribution by adjusting percentiles
-        n_samples = len(risk_score)
-        low_target = int(n_samples * 0.33)    # 33% low risk
-        medium_target = int(n_samples * 0.34)  # 34% medium risk  
-        high_target = n_samples - low_target - medium_target  # 33% high risk
-        
-        # Sort and redistribute
-        sorted_indices = np.argsort(risk_score)
-        balanced_scores = np.zeros_like(risk_score)
-        
-        # Assign low risk scores (0.0 - 0.3)
-        low_indices = sorted_indices[:low_target]
-        balanced_scores[low_indices] = np.random.uniform(0.0, 0.3, len(low_indices))
-        
-        # Assign medium risk scores (0.3 - 0.7)
-        medium_indices = sorted_indices[low_target:low_target + medium_target]
-        balanced_scores[medium_indices] = np.random.uniform(0.3, 0.7, len(medium_indices))
-        
-        # Assign high risk scores (0.7 - 1.0)
-        high_indices = sorted_indices[low_target + medium_target:]
-        balanced_scores[high_indices] = np.random.uniform(0.7, 1.0, len(high_indices))
-        
-        return balanced_scores
+        return final_risk
     
     def generate_rockfall_events(self, risk_scores: np.ndarray) -> np.ndarray:
-        """Generate binary rockfall events based on risk scores with balanced representation"""
-        
+        """Generate binary rockfall events based on sigmoid risk probability"""
         n_samples = len(risk_scores)
-        events = np.zeros(n_samples, dtype=int)
-        
-        # Define risk-based probabilities for rockfall events
-        # Low risk (0.0-0.3): 10-20% chance of rockfall
-        # Medium risk (0.3-0.7): 40-60% chance of rockfall  
-        # High risk (0.7-1.0): 70-90% chance of rockfall
-        
-        for i, risk_score in enumerate(risk_scores):
-            if risk_score <= 0.3:  # Low risk
-                probability = 0.10 + (risk_score / 0.3) * 0.10  # 10-20%
-            elif risk_score <= 0.7:  # Medium risk
-                probability = 0.20 + ((risk_score - 0.3) / 0.4) * 0.40  # 20-60%
-            else:  # High risk
-                probability = 0.60 + ((risk_score - 0.7) / 0.3) * 0.30  # 60-90%
-            
-            # Add some randomness to avoid perfect correlation
-            probability += np.random.normal(0, 0.05)
-            probability = np.clip(probability, 0.05, 0.95)  # Keep reasonable bounds
-            
-            events[i] = np.random.binomial(1, probability)
-        
-        # Ensure we have enough positive cases for each risk category for training
-        low_risk_mask = risk_scores <= 0.3
-        medium_risk_mask = (risk_scores > 0.3) & (risk_scores <= 0.7)
-        high_risk_mask = risk_scores > 0.7
-        
-        # Ensure minimum number of events in each category
-        min_events_per_category = max(20, int(n_samples * 0.02))  # At least 2% or 20 samples
-        
-        # Check and adjust low risk events
-        low_events = events[low_risk_mask].sum()
-        if low_events < min_events_per_category:
-            low_indices = np.where(low_risk_mask)[0]
-            additional_needed = min_events_per_category - low_events
-            selected = np.random.choice(low_indices, 
-                                      size=min(additional_needed, len(low_indices)), 
-                                      replace=False)
-            events[selected] = 1
-        
-        # Check and adjust medium risk events
-        medium_events = events[medium_risk_mask].sum()
-        if medium_events < min_events_per_category:
-            medium_indices = np.where(medium_risk_mask)[0]
-            additional_needed = min_events_per_category - medium_events
-            selected = np.random.choice(medium_indices, 
-                                      size=min(additional_needed, len(medium_indices)), 
-                                      replace=False)
-            events[selected] = 1
-        
-        # Check and adjust high risk events
-        high_events = events[high_risk_mask].sum()
-        if high_events < min_events_per_category:
-            high_indices = np.where(high_risk_mask)[0]
-            additional_needed = min_events_per_category - high_events
-            selected = np.random.choice(high_indices, 
-                                      size=min(additional_needed, len(high_indices)), 
-                                      replace=False)
-            events[selected] = 1
-        
+        # Sigmoid transition for physical detachment probability
+        probabilities = 1.0 / (1.0 + np.exp(-10.0 * (risk_scores - 0.45)))
+        probabilities = np.clip(probabilities, 0.02, 0.98)
+        events = np.random.binomial(1, probabilities)
         return events
     
     def generate_complete_dataset(self) -> pd.DataFrame:

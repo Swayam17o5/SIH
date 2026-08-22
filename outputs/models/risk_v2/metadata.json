@@ -1,0 +1,108 @@
+{
+  "dataset": "E:\\SIH\\outputs\\synthetic_training_data.csv",
+  "synthetic_only": true,
+  "features": [
+    "slope",
+    "elevation",
+    "fracture_density",
+    "roughness",
+    "slope_variability",
+    "instability_index",
+    "wetness_index",
+    "month",
+    "day_of_year",
+    "season",
+    "rainfall",
+    "temperature",
+    "temperature_variation",
+    "freeze_thaw_cycles",
+    "seismic_activity",
+    "wind_speed",
+    "precipitation_intensity",
+    "humidity"
+  ],
+  "labels": [
+    "LOW",
+    "MEDIUM",
+    "HIGH",
+    "CRITICAL"
+  ],
+  "thresholds": {
+    "low_max": 0.3,
+    "medium_max": 0.6,
+    "high_max": 0.8
+  },
+  "class_distribution": {
+    "LOW": 1650,
+    "MEDIUM": 1282,
+    "HIGH": 962,
+    "CRITICAL": 1106
+  },
+  "accuracy": 0.462,
+  "macro_f1": 0.4106840648072313,
+  "classification_report": {
+    "LOW": {
+      "precision": 0.565989847715736,
+      "recall": 0.6757575757575758,
+      "f1-score": 0.6160220994475138,
+      "support": 330.0
+    },
+    "MEDIUM": {
+      "precision": 0.3408239700374532,
+      "recall": 0.35546875,
+      "f1-score": 0.3479923518164436,
+      "support": 256.0
+    },
+    "HIGH": {
+      "precision": 0.2564102564102564,
+      "recall": 0.10362694300518134,
+      "f1-score": 0.14760147601476015,
+      "support": 193.0
+    },
+    "CRITICAL": {
+      "precision": 0.4904214559386973,
+      "recall": 0.579185520361991,
+      "f1-score": 0.5311203319502075,
+      "support": 221.0
+    },
+    "accuracy": 0.462,
+    "macro avg": {
+      "precision": 0.4134113825255357,
+      "recall": 0.42850969728118704,
+      "f1-score": 0.4106840648072313,
+      "support": 1000.0
+    },
+    "weighted avg": {
+      "precision": 0.4318979073254125,
+      "recall": 0.462,
+      "f1-score": 0.4382380131145337,
+      "support": 1000.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      223,
+      79,
+      13,
+      15
+    ],
+    [
+      100,
+      91,
+      22,
+      43
+    ],
+    [
+      49,
+      49,
+      20,
+      75
+    ],
+    [
+      22,
+      48,
+      23,
+      128
+    ]
+  ]
+}
