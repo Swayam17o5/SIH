@@ -326,19 +326,20 @@ function App() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            px: { xs: 1.5, sm: 2.5, md: 3 },
+            px: { xs: 1.5, sm: 2, md: 3 },
             minHeight: { xs: 56, md: 64 },
-            gap: { xs: 1, md: 2 }
+            width: '100%',
+            overflow: 'hidden'
           }}
         >
-          {/* Mobile Menu Toggle & Brand Logo */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          {/* Brand Logo & Mobile Menu Toggle */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, mr: { xs: 1, lg: 2 } }}>
             <IconButton
               color="inherit"
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 1, display: { md: 'none' }, color: 'var(--accent-primary)' }}
+              sx={{ mr: 1, display: { lg: 'none' }, color: 'var(--accent-primary)' }}
             >
               <MenuIcon />
             </IconButton>
@@ -348,16 +349,17 @@ function App() {
               component="div" 
               onClick={() => setCurrentPage('dashboard')}
               sx={{ 
-                fontSize: { xs: '1.1rem', sm: '1.25rem', md: '1.35rem', lg: '1.5rem' }, 
+                fontSize: { xs: '1.05rem', sm: '1.2rem', md: '1.3rem', lg: '1.4rem' }, 
                 fontWeight: 900, 
                 fontFamily: 'var(--font-sans)', 
                 color: '#f8fafc', 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: { xs: 1, sm: 1.5 },
+                gap: { xs: 1, sm: 1.2 },
                 cursor: 'pointer',
                 letterSpacing: '0.5px',
-                userSelect: 'none'
+                userSelect: 'none',
+                flexShrink: 0
               }}
             >
               ROCKGUARD AI
@@ -375,15 +377,13 @@ function App() {
             </Typography>
           </Box>
 
-          {/* Centered Horizontal Navigation Tabs for Desktop */}
+          {/* Centered Horizontal Navigation Tabs - Shown on Laptops & Desktops (>= 1200px / lg) */}
           <Box sx={{ 
-            display: { xs: 'none', md: 'flex' }, 
+            display: { xs: 'none', lg: 'flex' }, 
             alignItems: 'center',
-            gap: { md: 0.5, lg: 1, xl: 1.5 }, 
-            flexShrink: 1,
-            overflowX: 'auto',
-            scrollbarWidth: 'none',
-            '&::-webkit-scrollbar': { display: 'none' },
+            justifyContent: 'center',
+            gap: { lg: 0.8, xl: 1.2 }, 
+            flexShrink: 0,
             py: 0.5
           }}>
             {navigationItems.map((item) => {
@@ -395,16 +395,17 @@ function App() {
                   sx={{
                     color: isActive ? 'var(--accent-primary)' : 'text.secondary',
                     fontFamily: 'var(--font-mono)',
-                    fontSize: { md: '0.72rem', lg: '0.78rem', xl: '0.85rem' },
+                    fontSize: { lg: '0.74rem', xl: '0.82rem' },
                     fontWeight: isActive ? 700 : 600,
-                    letterSpacing: '0.3px',
-                    px: { md: 1.2, lg: 1.8, xl: 2.2 },
-                    py: { md: 0.6, lg: 0.8 },
+                    letterSpacing: '0.2px',
+                    px: { lg: 1.2, xl: 2 },
+                    py: 0.6,
                     borderRadius: '4px',
                     border: isActive ? '1px solid var(--accent-primary)' : '1px solid transparent',
                     background: isActive ? 'rgba(66, 201, 208, 0.08)' : 'transparent',
                     whiteSpace: 'nowrap',
                     flexShrink: 0,
+                    minWidth: 'auto',
                     transition: 'all 0.2s ease',
                     boxShadow: isActive ? '0 0 12px rgba(66, 201, 208, 0.15)' : 'none',
                     '&:hover': {
@@ -415,7 +416,7 @@ function App() {
                   }}
                   startIcon={React.cloneElement(item.icon, { 
                     sx: { 
-                      fontSize: { md: '16px !important', lg: '18px !important', xl: '20px !important' }, 
+                      fontSize: '16px !important', 
                       color: isActive ? 'var(--accent-primary)' : 'inherit' 
                     } 
                   })}
@@ -427,28 +428,25 @@ function App() {
           </Box>
           
           {/* Right Side: Coordinates & Status Badges */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5, lg: 2 }, flexShrink: 0 }}>
-            {/* Coordinates display - compact responsive */}
-            <Box sx={{ display: { xs: 'none', xl: 'flex' }, alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', letterSpacing: '0.2px', fontSize: '0.78rem' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5, lg: 2 }, flexShrink: 0, ml: 'auto' }}>
+            {/* Full Coordinates display - Only on Ultrawide screens (>= 1536px / xl) */}
+            <Box sx={{ display: { xs: 'none', xl: 'flex' }, alignItems: 'center', gap: 2, flexShrink: 0 }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', letterSpacing: '0.2px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
                 LAT: 20.3541° N | LON: 81.2847° E
               </Typography>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.78rem' }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
                 ELEV: 842m
               </Typography>
             </Box>
 
-            {/* Micro display for medium screens */}
-            <Box sx={{ display: { xs: 'none', lg: 'flex', xl: 'none' }, flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.1 }}>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', fontSize: '0.68rem' }}>
-                20.3541°N, 81.2847°E
-              </Typography>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.68rem' }}>
+            {/* Micro elevation badge on Large screens (1200px - 1535px / lg) */}
+            <Box sx={{ display: { xs: 'none', lg: 'flex', xl: 'none' }, alignItems: 'center', flexShrink: 0 }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
                 ELEV: 842m
               </Typography>
             </Box>
 
-            <IconButton color="inherit" size="small" sx={{ color: 'text.secondary', '&:hover': { color: '#fff' } }}>
+            <IconButton color="inherit" size="small" sx={{ color: 'text.secondary', '&:hover': { color: '#fff' }, flexShrink: 0 }}>
               <Badge badgeContent={systemStatus?.active_connections || 0} color="error">
                 <NotificationsIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
               </Badge>
@@ -462,18 +460,19 @@ function App() {
               sx={{ 
                 borderColor: connectionStatus === 'Connected' ? 'rgba(66, 201, 208, 0.4)' : 'rgba(255, 176, 32, 0.4)',
                 color: connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)',
-                fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                fontSize: { xs: '0.68rem', sm: '0.72rem' },
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 'bold',
                 height: { xs: 24, sm: 26 },
-                px: { xs: 0.5, sm: 1 }
+                px: { xs: 0.5, sm: 0.8 },
+                flexShrink: 0
               }}
             />
           </Box>
         </Toolbar>
       </AppBar>
       
-      {/* Mobile Drawer Navigation */}
+      {/* Mobile / Tablet Drawer Navigation */}
       <Box component="nav">
         <Drawer
           variant="temporary"
@@ -481,7 +480,7 @@ function App() {
           onClose={handleDrawerToggle}
           ModalProps={{ keepMounted: true }}
           sx={{
-            display: { xs: 'block', md: 'none' },
+            display: { xs: 'block', lg: 'none' },
             '& .MuiDrawer-paper': { 
               boxSizing: 'border-box', 
               width: 260, 
