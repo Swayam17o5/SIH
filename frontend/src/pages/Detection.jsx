@@ -201,8 +201,6 @@ const Detection = () => {
     setSelectedImageFile(file)
     setPreviewUrl(nextPreviewUrl)
     setDetectionResults(null)
-    setRiskAssessmentResult(null)
-    setRiskMessage(null)
     setError(null)
   }
 
@@ -223,8 +221,6 @@ const Detection = () => {
   const loadSample = async (type) => {
     setLoading(true)
     setError(null)
-    setRiskAssessmentResult(null)
-    setRiskMessage(null)
 
     try {
       if (type === 'backend') {
@@ -313,8 +309,6 @@ const Detection = () => {
   const runDetection = async () => {
     setLoading(true)
     setError(null)
-    setRiskAssessmentResult(null)
-    setRiskMessage(null)
 
     let imageToUpload = selectedImageFile
     let currentPreview = previewUrl
@@ -447,14 +441,6 @@ Total Detected Rocks: ${detectedCount}
 Average Confidence: ${avgConfidence}%
 Processing Time: ${(detectionResults.processing_time_ms / 1000).toFixed(2)}s
 Confidence Threshold: ${confidenceThreshold}
---------------------------------------------------------
-RISK ENGINE INTEGRATION
-Fitted Risk Model: Multiclass Ensemble Predictor
-Overall Zone Risk Score: ${riskAssessmentResult ? `${(riskAssessmentResult.risk_score * 100).toFixed(1)}%` : 'N/A'}
-Overall Zone Risk Level: ${riskAssessmentResult ? riskAssessmentResult.risk_level.toUpperCase() : 'N/A'}
---------------------------------------------------------
-RECOMMENDED ACTIONS:
-${riskAssessmentResult ? riskAssessmentResult.recommendations.map(r => `- ${r}`).join('\n') : '- Pending overall risk engine evaluation'}
 ========================================================`
 
     const blob = new Blob([reportContent], { type: 'text/plain' })
