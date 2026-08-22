@@ -5,7 +5,6 @@ import { Shield as ShieldIcon, Warning as WarningIcon } from '@mui/icons-materia
 
 const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
   const riskScore = Number.isNaN(Number(rawRiskScore)) ? 35 : Number(rawRiskScore)
-  // Convert score 0-100 to angle (-90 deg left to +90 deg right)
   const score = Math.max(0, Math.min(100, riskScore))
   const rotationAngle = -90 + (score / 100) * 180
 
@@ -36,13 +35,13 @@ const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
 
   const status = getRiskStatus()
 
-  // SVG parameters for exact 180-degree arch
+  // SVG parameters: Meter center at (110, 80), radius 66
   const cx = 110
-  const cy = 110
-  const r = 78
-  const pathLength = Math.PI * r // Approx 245.044
+  const cy = 80
+  const r = 66
+  const pathLength = Math.PI * r // ~207.34
 
-  // Arc path from left (32, 110) to right (188, 110)
+  // Arc path from left (44, 80) to right (176, 80)
   const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`
   const strokeDashoffset = pathLength * (1 - score / 100)
 
@@ -53,9 +52,9 @@ const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
           STABILITY ASSESSMENT INDEX
         </Typography>
 
-        {/* Semi-circular dial */}
-        <Box sx={{ position: 'relative', width: 220, height: 125, my: 1, display: 'flex', justifyContent: 'center' }}>
-          <svg width="220" height="130" viewBox="0 0 220 130" style={{ overflow: 'visible' }}>
+        {/* Semi-circular dial container */}
+        <Box sx={{ position: 'relative', width: 220, height: 142, my: 0.5, display: 'flex', justifyContent: 'center' }}>
+          <svg width="220" height="142" viewBox="0 0 220 142" style={{ overflow: 'visible' }}>
             <defs>
               {/* Dial gradient */}
               <linearGradient id="dialGlow" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -93,46 +92,53 @@ const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
             />
 
             {/* Inner Scale Markers */}
-            <text x="24" y="124" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">0%</text>
-            <text x="103" y="24" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">50%</text>
-            <text x="184" y="124" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">100%</text>
+            <text x="24" y="94" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">0%</text>
+            <text x="102" y="10" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">50%</text>
+            <text x="184" y="94" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">100%</text>
 
-            {/* NEEDLE INDICATOR */}
+            {/* NEEDLE INDICATOR - Sweeps in top half above pivot pin (cy = 80) */}
             <g
               transform={`rotate(${rotationAngle} ${cx} ${cy})`}
               style={{ transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
-              {/* Sleek Tapered Pointer */}
               <polygon
-                points="108,110 110,36 112,110"
+                points="108,80 110,20 112,80"
                 fill={status.color}
                 style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.6))' }}
               />
             </g>
 
             {/* Center Anchor Pin */}
-            <circle cx={cx} cy={cy} r="7" fill="var(--bg-primary)" stroke="var(--border-primary)" strokeWidth="2" />
-            <circle cx={cx} cy={cy} r="3" fill={status.color} />
-          </svg>
+            <circle cx={cx} cy={cy} r="6" fill="var(--bg-primary)" stroke="var(--border-primary)" strokeWidth="2" />
+            <circle cx={cx} cy={cy} r="2.5" fill={status.color} />
 
-          {/* Value Display - Positioned cleanly below pivot pin */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '62px',
-              left: 0,
-              right: 0,
-              textAlign: 'center',
-              pointerEvents: 'none'
-            }}
-          >
-            <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>
+            {/* Percentage Value Display - Positioned cleanly below pivot pin */}
+            <text
+              x={cx}
+              y="108"
+              textAnchor="middle"
+              fill="#f8fafc"
+              fontSize="24"
+              fontWeight="800"
+              fontFamily="var(--font-sans)"
+            >
               {score.toFixed(1)}%
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem' }}>
-              Rockfall Risk
-            </Typography>
-          </Box>
+            </text>
+
+            {/* Rockfall Risk Label - Positioned below score */}
+            <text
+              x={cx}
+              y="126"
+              textAnchor="middle"
+              fill="#94a3b8"
+              fontSize="9"
+              fontWeight="700"
+              letterSpacing="1.5"
+              fontFamily="var(--font-mono)"
+            >
+              ROCKFALL RISK
+            </text>
+          </svg>
         </Box>
 
         {/* Status card details */}
@@ -144,7 +150,7 @@ const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
             p: 1.8,
             border: `1px solid ${status.color}30`,
             textAlign: 'center',
-            mt: 1
+            mt: 0.5
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 0.5 }}>
