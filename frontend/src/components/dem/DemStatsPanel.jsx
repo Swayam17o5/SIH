@@ -24,8 +24,18 @@ import {
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 
-const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
-  const fileInfo = demFiles.find(f => f.id === selectedFile) || {}
+const formatResolution = (res) => {
+  if (!res) return '30m'
+  if (typeof res === 'string') return res
+  if (typeof res === 'object') {
+    if (res.x_m && res.y_m) return `${res.x_m}m × ${res.y_m}m`
+    if (res.x_m) return `${res.x_m}m`
+  }
+  return '30m'
+}
+
+const DemStatsPanel = ({ statistics, selectedFile, demFiles = [], sourceInfo }) => {
+  const fileInfo = (demFiles || []).find(f => f.id === selectedFile) || {}
   const metaSource = sourceInfo || fileInfo
 
   // Elevation + Slope combined color legend
@@ -166,7 +176,7 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                 </Typography>
                 {metaSource?.crs && (
                   <Typography variant="caption" sx={{ color: '#64748b', display: 'block', fontSize: '0.7rem', mt: 0.25 }}>
-                    CRS: {metaSource.crs} | Res: {metaSource.resolution || '15m'}
+                    CRS: {metaSource.crs} | Res: {formatResolution(metaSource.resolution)}
                   </Typography>
                 )}
                 {isSynthetic && (
