@@ -314,73 +314,143 @@ function App() {
         position="fixed"
         sx={{
           zIndex: theme.zIndex.drawer + 1,
-          background: 'rgba(11, 18, 21, 0.85) !important',
-          backdropFilter: 'blur(12px)',
+          background: 'rgba(11, 18, 21, 0.92) !important',
+          backdropFilter: 'blur(16px)',
           borderBottom: '1px solid var(--border-primary)',
-          boxShadow: 'none'
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
         }}
       >
-        <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: { xs: 'wrap', md: 'nowrap' }, py: { xs: 1, md: 0 } }}>
-          {/* Logo & Brand */}
-          <Typography noWrap component="div" sx={{ fontSize: '1.75rem', fontWeight: 900, fontFamily: 'var(--font-sans)', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 2, mr: 4 }}>
-            ROCKGUARD AI
-            <span className="neon-dot" style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', backgroundColor: connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)', boxShadow: `0 0 10px ${connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)'}` }} />
-          </Typography>
-
-          {/* Centered Horizontal Navigation Tabs */}
-          <Box sx={{ 
+        <Toolbar 
+          disableGutters
+          sx={{ 
             display: 'flex', 
-            gap: 2.5, 
-            mx: { xs: 0, md: 4 },
-            order: { xs: 3, md: 2 },
-            width: { xs: '100%', md: 'auto' },
-            justifyContent: { xs: 'flex-start', md: 'center' },
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            px: { xs: 1.5, sm: 2.5, md: 3 },
+            minHeight: { xs: 56, md: 64 },
+            gap: { xs: 1, md: 2 }
+          }}
+        >
+          {/* Mobile Menu Toggle & Brand Logo */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 1, display: { md: 'none' }, color: 'var(--accent-primary)' }}
+            >
+              <MenuIcon />
+            </IconButton>
+
+            <Typography 
+              noWrap 
+              component="div" 
+              onClick={() => setCurrentPage('dashboard')}
+              sx={{ 
+                fontSize: { xs: '1.1rem', sm: '1.25rem', md: '1.35rem', lg: '1.5rem' }, 
+                fontWeight: 900, 
+                fontFamily: 'var(--font-sans)', 
+                color: '#f8fafc', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: { xs: 1, sm: 1.5 },
+                cursor: 'pointer',
+                letterSpacing: '0.5px',
+                userSelect: 'none'
+              }}
+            >
+              ROCKGUARD AI
+              <span 
+                className="neon-dot" 
+                style={{ 
+                  display: 'inline-block', 
+                  width: 8, 
+                  height: 8, 
+                  borderRadius: '50%', 
+                  backgroundColor: connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)', 
+                  boxShadow: `0 0 10px ${connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)'}` 
+                }} 
+              />
+            </Typography>
+          </Box>
+
+          {/* Centered Horizontal Navigation Tabs for Desktop */}
+          <Box sx={{ 
+            display: { xs: 'none', md: 'flex' }, 
+            alignItems: 'center',
+            gap: { md: 0.5, lg: 1, xl: 1.5 }, 
+            flexShrink: 1,
             overflowX: 'auto',
             scrollbarWidth: 'none',
-            '&::-webkit-scrollbar': { display: 'none' }
+            '&::-webkit-scrollbar': { display: 'none' },
+            py: 0.5
           }}>
-            {navigationItems.map((item) => (
-              <Button
-                key={item.path}
-                onClick={() => setCurrentPage(item.path)}
-                sx={{
-                  color: currentPage === item.path ? 'var(--accent-primary)' : 'text.secondary',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '1.05rem',
-                  fontWeight: 'bold',
-                  px: 4,
-                  py: 1.2,
-                  borderRadius: '4px',
-                  border: currentPage === item.path ? '1px solid var(--accent-primary)' : '1px solid transparent',
-                  background: currentPage === item.path ? 'rgba(66, 201, 208, 0.05)' : 'transparent',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    color: 'var(--accent-primary)',
-                    background: 'rgba(66, 201, 208, 0.08)'
-                  }
-                }}
-                startIcon={React.cloneElement(item.icon, { sx: { fontSize: '22px !important', color: currentPage === item.path ? 'var(--accent-primary)' : 'inherit' } })}
-              >
-                {item.text.toUpperCase()}
-              </Button>
-            ))}
+            {navigationItems.map((item) => {
+              const isActive = currentPage === item.path
+              return (
+                <Button
+                  key={item.path}
+                  onClick={() => setCurrentPage(item.path)}
+                  sx={{
+                    color: isActive ? 'var(--accent-primary)' : 'text.secondary',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: { md: '0.72rem', lg: '0.78rem', xl: '0.85rem' },
+                    fontWeight: isActive ? 700 : 600,
+                    letterSpacing: '0.3px',
+                    px: { md: 1.2, lg: 1.8, xl: 2.2 },
+                    py: { md: 0.6, lg: 0.8 },
+                    borderRadius: '4px',
+                    border: isActive ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                    background: isActive ? 'rgba(66, 201, 208, 0.08)' : 'transparent',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease',
+                    boxShadow: isActive ? '0 0 12px rgba(66, 201, 208, 0.15)' : 'none',
+                    '&:hover': {
+                      color: 'var(--accent-primary)',
+                      background: 'rgba(66, 201, 208, 0.12)',
+                      borderColor: isActive ? 'var(--accent-primary)' : 'rgba(66, 201, 208, 0.3)'
+                    }
+                  }}
+                  startIcon={React.cloneElement(item.icon, { 
+                    sx: { 
+                      fontSize: { md: '16px !important', lg: '18px !important', xl: '20px !important' }, 
+                      color: isActive ? 'var(--accent-primary)' : 'inherit' 
+                    } 
+                  })}
+                >
+                  {item.text.toUpperCase()}
+                </Button>
+              )
+            })}
           </Box>
           
-          {/* Coordinates & Notification Array */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, order: { xs: 2, md: 3 } }}>
-            <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 2.5 }}>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', letterSpacing: '0.2px', fontSize: '0.85rem' }}>
+          {/* Right Side: Coordinates & Status Badges */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5, lg: 2 }, flexShrink: 0 }}>
+            {/* Coordinates display - compact responsive */}
+            <Box sx={{ display: { xs: 'none', xl: 'flex' }, alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', letterSpacing: '0.2px', fontSize: '0.78rem' }}>
                 LAT: 20.3541° N | LON: 81.2847° E
               </Typography>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'success.main', fontWeight: 700, fontSize: '0.85rem' }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.78rem' }}>
                 ELEV: 842m
               </Typography>
             </Box>
 
-            <IconButton color="inherit" size="medium">
+            {/* Micro display for medium screens */}
+            <Box sx={{ display: { xs: 'none', lg: 'flex', xl: 'none' }, flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.1 }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', fontSize: '0.68rem' }}>
+                20.3541°N, 81.2847°E
+              </Typography>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.68rem' }}>
+                ELEV: 842m
+              </Typography>
+            </Box>
+
+            <IconButton color="inherit" size="small" sx={{ color: 'text.secondary', '&:hover': { color: '#fff' } }}>
               <Badge badgeContent={systemStatus?.active_connections || 0} color="error">
-                <NotificationsIcon sx={{ fontSize: 26 }} />
+                <NotificationsIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
               </Badge>
             </IconButton>
             
@@ -388,21 +458,42 @@ function App() {
               label={connectionStatus}
               color={connectionStatus === 'Connected' ? 'success' : 'warning'}
               variant="outlined"
-              size="medium"
+              size="small"
               sx={{ 
                 borderColor: connectionStatus === 'Connected' ? 'rgba(66, 201, 208, 0.4)' : 'rgba(255, 176, 32, 0.4)',
                 color: connectionStatus === 'Connected' ? 'var(--status-success)' : 'var(--status-warning)',
-                fontSize: '0.8rem',
+                fontSize: { xs: '0.68rem', sm: '0.75rem' },
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 'bold',
-                height: 28
+                height: { xs: 24, sm: 26 },
+                px: { xs: 0.5, sm: 1 }
               }}
             />
           </Box>
         </Toolbar>
       </AppBar>
       
-      {/* Navigation Drawer removed for full-screen HUD navbar layout */}
+      {/* Mobile Drawer Navigation */}
+      <Box component="nav">
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: 260, 
+              backgroundColor: 'var(--bg-secondary)', 
+              borderColor: 'var(--border-primary)',
+              boxShadow: '10px 0 30px rgba(0,0,0,0.8)'
+            },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      </Box>
       
       {/* Main Content */}
       <Box
