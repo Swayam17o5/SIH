@@ -195,7 +195,27 @@ const DEMAnalysis = () => {
                   <Select
                     value={selectedDEM}
                     label="Select DEM Mining Site"
-                    onChange={(e) => handleDEMChange(e.target.value)}
+                    onChange={(e) => setSelectedDEM(e.target.value)}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          backgroundColor: '#0f172a',
+                          border: '1px solid #334155',
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.7)',
+                          '& .MuiMenuItem-root': {
+                            py: 1.25,
+                            px: 2,
+                            borderBottom: '1px solid rgba(51, 65, 85, 0.4)',
+                            '&:hover': {
+                              backgroundColor: 'rgba(59, 130, 246, 0.15)'
+                            },
+                            '&.Mui-selected': {
+                              backgroundColor: 'rgba(59, 130, 246, 0.25) !important'
+                            }
+                          }
+                        }
+                      }
+                    }}
                     sx={{
                       color: 'white',
                       backgroundColor: 'background.default',
@@ -208,9 +228,13 @@ const DEMAnalysis = () => {
                     }}
                   >
                     {demFiles.map((file) => (
-                      <MenuItem key={file.id} value={file.id}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <Box>
+                      <MenuItem
+                        key={file.id}
+                        value={file.id}
+                        onClick={() => setSelectedDEM(file.id)}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pointerEvents: 'none' }}>
+                          <Box sx={{ pointerEvents: 'none' }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: 'white' }}>
                               {file.name}
                             </Typography>
@@ -228,7 +252,8 @@ const DEMAnalysis = () => {
                               height: 20,
                               backgroundColor: file.is_real_data ? 'rgba(13, 148, 136, 0.12)' : 'rgba(245, 158, 11, 0.12)',
                               color: file.is_real_data ? 'secondary.main' : 'warning.main',
-                              border: '1px solid currentColor'
+                              border: '1px solid currentColor',
+                              pointerEvents: 'none'
                             }}
                           />
                         </Box>

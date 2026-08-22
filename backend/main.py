@@ -1463,37 +1463,67 @@ async def analyze_dem(dem_id: str):
         raise HTTPException(status_code=500, detail=f"DEM analysis failed: {str(e)}")
 
 def generate_synthetic_dem_matrix(dem_id: str, grid_size: int = 128):
-    """Generate geologically representative 3D elevation grid for open-pit mining site"""
+    """Generate geologically distinct 3D elevation grid for each mining site"""
     import numpy as np
     from scipy import ndimage
 
-    site_configs = {
-        "bailadila_iron_mine": {"min_e": 620.0, "max_e": 1280.0, "benches": 7, "noise": 12.0},
-        "malanjkhand_copper_mine": {"min_e": 280.0, "max_e": 740.0, "benches": 9, "noise": 10.0},
-        "chuquicamata": {"min_e": 1800.0, "max_e": 3100.0, "benches": 12, "noise": 20.0},
-        "bingham_canyon": {"min_e": 1300.0, "max_e": 2550.0, "benches": 10, "noise": 18.0},
-        "grasberg": {"min_e": 3100.0, "max_e": 4250.0, "benches": 8, "noise": 25.0}
-    }
-    config = site_configs.get(dem_id, {"min_e": 500.0, "max_e": 1500.0, "benches": 7, "noise": 15.0})
-    
-    min_e, max_e = config["min_e"], config["max_e"]
-    pit_depth = max_e - min_e
-    
     x = np.linspace(-1.2, 1.2, grid_size)
     y = np.linspace(-1.2, 1.2, grid_size)
     X, Y = np.meshgrid(x, y)
     R = np.sqrt(X**2 + Y**2)
     
-    bowl = min_e + pit_depth * (1.0 / (1.0 + np.exp(-6.5 * (R - 0.52))))
-    benches = np.sin(R * config["benches"] * np.pi * 2.0) * (pit_depth * 0.03)
-    highwall = np.exp(-((X - 0.3)**2 * 3.5 + (Y - 0.2)**2 * 3.5)) * (pit_depth * 0.16)
-    
     np.random.seed(abs(hash(dem_id)) % (2**32))
-    raw_noise = np.random.normal(0, config["noise"], (grid_size, grid_size))
-    smooth_noise = ndimage.gaussian_filter(raw_noise, sigma=1.8)
-    
-    grid = bowl + benches + highwall + smooth_noise
-    return np.clip(grid, min_e, max_e + 20.0)
+
+    if dem_id == "bailadila_iron_mine":
+        # Elliptical Open-Pit with Eastern Highwall Ridge
+        min_e, max_e = 620.0, 1280.0
+        R_ellip = np.sqrt((X * 0.85)**2 + (Y * 1.35)**2)
+        pit = min_e + (max_e - min_e) * (1.0 / (1.0 + np.exp(-7.0 * (R_ellip - 0.5))))
+        benches = np.sin(R_ellip * 14 * np.pi) * 18.0
+        highwall = np.exp(-((X - 0.45)**2 * 6.0 + (Y - 0.1)**2 * 2.0)) * 240.0
+        noise = ndimage.gaussian_filter(np.random.normal(0, 12, (grid_size, grid_size)), sigma=1.5)
+        grid = pit + benches + highwall + noise
+
+    elif dem_id == "malanjkhand_copper_mine":
+        # Spiral Concentric Pit with Western Waste Dump Mounds
+        min_e, max_e = 280.0, 740.0
+        angle = np.arctan2(Y, X)
+        spiral_R = R + 0.08 * angle
+        pit = min_e + (max_e - min_e) * (R**1.8 / (R**1.8 + 0.35**1.8))
+        benches = np.sin(spiral_R * 18 * np.pi) * 12.0
+        waste_dump = np.exp(-((X + 0.6)**2 * 4.0 + (Y + 0.3)**2 * 3.0)) * 140.0
+        noise = ndimage.gaussian_filter(np.random.normal(0, 10, (grid_size, grid_size)), sigma=1.6)
+        grid = pit + benches + waste_dump + noise
+
+    elif dem_id == "chuquicamata":
+        # Deep Asymmetric Trench Canyon with Steep Vertical Cliff Walls
+        min_e, max_e = 1800.0, 3100.0
+        trench_dist = np.abs(X * 1.5 - Y * 0.3)
+        pit = min_e + (max_e - min_e) * (1.0 - np.exp(-3.5 * trench_dist**1.5))
+        cliff_wall = np.exp(-((X + 0.3)**2 * 12.0 + (Y - 0.2)**2 * 2.0)) * 320.0
+        tailings = np.exp(-((X - 0.7)**2 * 3.0 + (Y + 0.5)**2 * 4.0)) * 220.0
+        noise = ndimage.gaussian_filter(np.random.normal(0, 22, (grid_size, grid_size)), sigma=1.2)
+        grid = pit + cliff_wall + tailings + noise
+
+    elif dem_id == "bingham_canyon":
+        # Circular Terraced Amphitheater Pit with South Landslide Scar
+        min_e, max_e = 1300.0, 2550.0
+        pit = min_e + (max_e - min_e) * (R / 1.1)**2.2
+        terraces = np.round(pit / 45.0) * 45.0
+        slide_scar = np.exp(-((X - 0.1)**2 * 5.0 + (Y + 0.5)**2 * 8.0)) * (pit * 0.15)
+        noise = ndimage.gaussian_filter(np.random.normal(0, 15, (grid_size, grid_size)), sigma=1.4)
+        grid = terraces + slide_scar + noise
+
+    else: # Grasberg Mine
+        # High-Altitude Volcanic Alpine Crater Peak
+        min_e, max_e = 3100.0, 4250.0
+        crater = min_e + (max_e - min_e) * (1.0 - np.exp(-4.5 * (R - 0.4)**2))
+        alpine_peaks = np.cos(X * 4) * np.sin(Y * 4) * 180.0
+        glacier_ridge = np.exp(-((X + 0.4)**2 * 8.0 + (Y + 0.4)**2 * 8.0)) * 350.0
+        noise = ndimage.gaussian_filter(np.random.normal(0, 28, (grid_size, grid_size)), sigma=1.0)
+        grid = crater + alpine_peaks + glacier_ridge + noise
+
+    return np.clip(grid, min_e, max_e + 30.0)
 
 async def process_dem_file(file_path: Path, dem_id: str):
     """Process DEM file or synthetic generator to produce 2D PNG visualization & 128x128 3D terrain mesh"""
