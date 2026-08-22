@@ -326,14 +326,14 @@ function App() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            px: { xs: 1.5, sm: 2, md: 3 },
+            px: { xs: 1.5, sm: 2, md: 2.5 },
             minHeight: { xs: 56, md: 64 },
             width: '100%',
             overflow: 'hidden'
           }}
         >
           {/* Brand Logo & Mobile Menu Toggle */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, mr: { xs: 1, lg: 2 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, mr: { xs: 1, lg: 1.5 } }}>
             <IconButton
               color="inherit"
               aria-label="open drawer"
@@ -349,7 +349,7 @@ function App() {
               component="div" 
               onClick={() => setCurrentPage('dashboard')}
               sx={{ 
-                fontSize: { xs: '1.05rem', sm: '1.2rem', md: '1.3rem', lg: '1.4rem' }, 
+                fontSize: { xs: '1.05rem', sm: '1.2rem', md: '1.25rem', lg: '1.35rem' }, 
                 fontWeight: 900, 
                 fontFamily: 'var(--font-sans)', 
                 color: '#f8fafc', 
@@ -382,8 +382,12 @@ function App() {
             display: { xs: 'none', lg: 'flex' }, 
             alignItems: 'center',
             justifyContent: 'center',
-            gap: { lg: 0.8, xl: 1.2 }, 
-            flexShrink: 0,
+            gap: { lg: 0.5, xl: 1 }, 
+            flexShrink: 1,
+            minWidth: 0,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
             py: 0.5
           }}>
             {navigationItems.map((item) => {
@@ -395,11 +399,11 @@ function App() {
                   sx={{
                     color: isActive ? 'var(--accent-primary)' : 'text.secondary',
                     fontFamily: 'var(--font-mono)',
-                    fontSize: { lg: '0.74rem', xl: '0.82rem' },
+                    fontSize: { lg: '0.72rem', xl: '0.78rem' },
                     fontWeight: isActive ? 700 : 600,
                     letterSpacing: '0.2px',
-                    px: { lg: 1.2, xl: 2 },
-                    py: 0.6,
+                    px: { lg: 1, xl: 1.6 },
+                    py: 0.5,
                     borderRadius: '4px',
                     border: isActive ? '1px solid var(--accent-primary)' : '1px solid transparent',
                     background: isActive ? 'rgba(66, 201, 208, 0.08)' : 'transparent',
@@ -416,7 +420,7 @@ function App() {
                   }}
                   startIcon={React.cloneElement(item.icon, { 
                     sx: { 
-                      fontSize: '16px !important', 
+                      fontSize: '15px !important', 
                       color: isActive ? 'var(--accent-primary)' : 'inherit' 
                     } 
                   })}
@@ -427,26 +431,23 @@ function App() {
             })}
           </Box>
           
-          {/* Right Side: Coordinates & Status Badges */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5, lg: 2 }, flexShrink: 0, ml: 'auto' }}>
-            {/* Full Coordinates display - Only on Ultrawide screens (>= 1536px / xl) */}
-            <Box sx={{ display: { xs: 'none', xl: 'flex' }, alignItems: 'center', gap: 2, flexShrink: 0 }}>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', letterSpacing: '0.2px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+          {/* Right Side: Elevation & Status Badges - Always fully framed */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.2, lg: 1.5 }, flexShrink: 0, ml: 'auto', pr: 0.5 }}>
+            {/* Full Coordinates display - Only on Ultrawide screens (>= 1750px) */}
+            <Box sx={{ display: { xs: 'none', '@media (min-width: 1750px)': { display: 'flex' } }, alignItems: 'center', gap: 2, flexShrink: 0 }}>
+              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', letterSpacing: '0.2px', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
                 LAT: 20.3541° N | LON: 81.2847° E
-              </Typography>
-              <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
-                ELEV: 842m
               </Typography>
             </Box>
 
-            {/* Micro elevation badge on Large screens (1200px - 1535px / lg) */}
-            <Box sx={{ display: { xs: 'none', lg: 'flex', xl: 'none' }, alignItems: 'center', flexShrink: 0 }}>
+            {/* Micro elevation badge on Large & XL screens */}
+            <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', flexShrink: 0 }}>
               <Typography sx={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
                 ELEV: 842m
               </Typography>
             </Box>
 
-            <IconButton color="inherit" size="small" sx={{ color: 'text.secondary', '&:hover': { color: '#fff' }, flexShrink: 0 }}>
+            <IconButton color="inherit" size="small" sx={{ color: 'text.secondary', '&:hover': { color: '#fff' }, flexShrink: 0, p: 0.5 }}>
               <Badge badgeContent={systemStatus?.active_connections || 0} color="error">
                 <NotificationsIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
               </Badge>
