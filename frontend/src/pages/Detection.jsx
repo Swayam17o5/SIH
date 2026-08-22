@@ -187,13 +187,17 @@ const Detection = () => {
           const scaledY = (y1 * scaleY) + offsetY
           const scaledWidth = (x2 - x1) * scaleX
           const scaledHeight = (y2 - y1) * scaleY
-          const boxColor = confidence > 80 ? 'var(--status-success)' : confidence > 60 ? 'var(--status-warning)' : 'var(--status-danger)'
-          const textWidth = confidence.length * 8 + 35
+
+          const rawConf = detection.confidence ?? detection.confidence_score ?? 0
+          const confPercent = Math.round(rawConf > 1 ? rawConf : rawConf * 100)
+          const confidenceText = `${confPercent}%`
+          const boxColor = confPercent > 80 ? 'var(--status-success)' : confPercent > 60 ? 'var(--status-warning)' : 'var(--status-danger)'
+          const textWidth = confidenceText.length * 8 + 35
 
           console.log(`🎯 Detection ${index + 1}:`, {
             originalBbox: [x1, y1, x2, y2],
             scaledBbox: [scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight],
-            confidence: confidence + '%'
+            confidence: confidenceText
           })
 
           return (
@@ -238,7 +242,7 @@ const Detection = () => {
                 fontWeight="bold"
                 fontFamily="Arial, sans-serif"
               >
-                🪨 {confidence}%
+                🪨 {confidenceText}
               </text>
             </g>
           )
@@ -533,7 +537,10 @@ const Detection = () => {
                           fontFamily: 'var(--font-mono)'
                         }}>
                           {detectionResults.detections && detectionResults.detections.length > 0 
-                            ? (detectionResults.detections.reduce((sum, det) => sum + det.confidence, 0) / detectionResults.detections.length * 100).toFixed(1)
+                            ? (detectionResults.detections.reduce((sum, det) => {
+                                const c = det.confidence ?? det.confidence_score ?? 0
+                                return sum + (c > 1 ? c : c * 100)
+                              }, 0) / detectionResults.detections.length).toFixed(1)
                             : 0}%
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
