@@ -1413,14 +1413,16 @@ async def analyze_dem(dem_id: str):
     logger.info(f"🗺️ DEM analysis requested for: {dem_id}")
     
     try:
-        # Map DEM IDs to file paths - DEM files are in backend/data/DEM/
-        backend_root = Path(__file__).parent  # This is the backend/ directory
+        # Map DEM IDs to file paths - DEM files are in project root data/DEM/
+        backend_root = Path(__file__).parent  # This is backend/
+        project_root = backend_root.parent   # This is SIH/
+        
         dem_files = {
-            "bailadila_iron_mine": backend_root / "data" / "DEM" / "Bailadila_Iron_Ore_Mine.tif",
-            "malanjkhand_copper_mine": backend_root / "data" / "DEM" / "Malanjkhand_Copper_Mine.tif",
-            "chuquicamata": backend_root / "data" / "DEM" / "Chuquicamata_copper_Mine.tif",
-            "bingham_canyon": backend_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif", 
-            "grasberg": backend_root / "data" / "DEM" / "Grasberg_Mine_Indonesia.tif"
+            "bailadila_iron_mine": project_root / "data" / "DEM" / "Bailadila_Iron_Ore_Mine.tif",
+            "malanjkhand_copper_mine": project_root / "data" / "DEM" / "Malanjkhand_Copper_Mine.tif",
+            "chuquicamata": project_root / "data" / "DEM" / "Chuquicamata_copper_Mine.tif",
+            "bingham_canyon": project_root / "data" / "DEM" / "Bingham_Canyon_Mine.tif", 
+            "grasberg": project_root / "data" / "DEM" / "Grasberg_Mine_Indonesia.tif"
         }
         
         logger.info(f"📋 Available DEM files: {list(dem_files.keys())}")
@@ -1429,15 +1431,8 @@ async def analyze_dem(dem_id: str):
             logger.error(f"❌ Invalid DEM file ID: {dem_id}")
             raise HTTPException(status_code=400, detail="Invalid DEM file ID")
         
-        file_path = dem_files[dem_id]  # Now using absolute Path objects
-        logger.info(f"📁 Resolved file path: {file_path}")
-        logger.info(f"📁 Absolute file path: {file_path.absolute()}")
-        logger.info(f"📂 Backend root: {backend_root}")
-        
-        if not file_path.exists():
-            logger.info(f"ℹ️ DEM raster file not found at {file_path}, using representative DEM elevation matrix generator")
-        
-        logger.info(f"✅ Starting DEM analysis for {dem_id}...")
+        file_path = dem_files[dem_id]
+        logger.info(f"📁 Resolved file path: {file_path} (exists: {file_path.exists()})")
         
         # Process DEM file and generate color-coded visualization
         result = await process_dem_file(file_path, dem_id)
@@ -1599,33 +1594,15 @@ async def process_dem_file(file_path: Path, dem_id: str):
 
     start_time = datetime.now()
     cell_size_m = 15.0
-    elevation_data = None
-
-    if has_rasterio and file_path.exists():
+    if file_path.exists():
         try:
-            with rasterio.open(file_path) as dataset:
-                elevation_data = dataset.read(1).astype(np.float64)
-                if dataset.nodata is not None:
-                    elevation_data = np.where(elevation_data == dataset.nodata, np.nan, elevation_data)
-                elevation_data = np.where(
-                    (elevation_data < -500) | (elevation_data > 9000), 
-                    np.nan, 
-                    elevation_data
-                )
-                if dataset.crs and dataset.crs.is_projected:
-                    res_x, res_y = dataset.res
-                    raw_h, raw_w = elevation_data.shape
-                    cell_size_m = float((res_x * (raw_w / 128) + res_y * (raw_h / 128)) / 2.0)
-                else:
-                    lat = (dataset.bounds.top + dataset.bounds.bottom) / 2.0
-                    deg_to_m_lat = 111132.0
-                    deg_to_m_lon = 111132.0 * np.cos(np.radians(lat))
-                    cell_size_x = ((dataset.bounds.right - dataset.bounds.left) / 128.0) * deg_to_m_lon
-                    cell_size_y = ((dataset.bounds.top - dataset.bounds.bottom) / 128.0) * deg_to_m_lat
-                    cell_size_m = float((abs(cell_size_x) + abs(cell_size_y)) / 2.0)
-                cell_size_m = max(5.0, cell_size_m)
+            from PIL import Image
+            img = Image.open(file_path)
+            elevation_data = np.array(img, dtype=np.float64)
+            elevation_data = np.where((elevation_data < -500) | (elevation_data > 9000), np.nan, elevation_data)
+            logger.info(f"✅ Loaded real TIF raster file {file_path.name}: shape {elevation_data.shape}, min {np.nanmin(elevation_data):.1f}m, max {np.nanmax(elevation_data):.1f}m")
         except Exception as e:
-            logger.warning(f"⚠️ Could not read raster file {file_path}: {e}")
+            logger.warning(f"⚠️ Could not load TIF file {file_path}: {e}")
             elevation_data = None
 
     if elevation_data is None:
