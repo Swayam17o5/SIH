@@ -1717,11 +1717,7 @@ async def process_dem_file(file_path: Path, dem_id: str, layer: str = "elevation
         "source_info": source_info,
         "mesh3d": mesh3d,
         "processing_time": f"{processing_time:.2f}s"
-    }   "source_info": source_info,
-        "mesh3d": mesh3d,
-        "processing_time": f"{processing_time:.2f}s"
     }
->>>>>>> origin/main
 
 @app.get("/api/simulate-data")
 async def simulate_environmental_data():
