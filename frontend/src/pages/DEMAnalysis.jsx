@@ -27,6 +27,7 @@ import { motion } from 'framer-motion'
 import DemViewToggle from '../components/dem/DemViewToggle'
 import Dem3DViewer from '../components/dem/Dem3DViewer'
 import DemStatsPanel from '../components/dem/DemStatsPanel'
+import DemRiskJustificationCard from '../components/dem/DemRiskJustificationCard'
 
 const DEMAnalysis = () => {
   const [selectedDEM, setSelectedDEM] = useState('bailadila_iron_mine')
@@ -107,7 +108,6 @@ const DEMAnalysis = () => {
     setLoading(true)
     setError(null)
     setImageLoaded(false)
-    setComputedMetrics(null)
 
     try {
       const data = await apiRequest(`/api/dem/analyze/${selectedDEM}`)
@@ -115,21 +115,20 @@ const DEMAnalysis = () => {
     } catch (err) {
       console.error(`❌ DEM fetch failed for ${selectedDEM}:`, err)
       setError(err.message || 'Failed to load DEM dataset')
-      setDemData(null)
     } finally {
       setLoading(false)
     }
   }, [selectedDEM])
 
   useEffect(() => {
-    if (selectedDEM) {
-      fetchDEMData()
-    }
-  }, [selectedDEM, fetchDEMData])
+    fetchDEMData()
+  }, [fetchDEMData])
 
-  const handleDEMChange = (event) => {
-    const newSiteId = event.target.value
-    setSelectedDEM(newSiteId)
+  const handleDEMChange = (eventOrValue) => {
+    const newSiteId = typeof eventOrValue === 'string' ? eventOrValue : eventOrValue?.target?.value
+    if (newSiteId) {
+      setSelectedDEM(newSiteId)
+    }
   }
 
   const handleZoomIn = () => {
@@ -195,7 +194,7 @@ const DEMAnalysis = () => {
                   <Select
                     value={selectedDEM}
                     label="Select DEM Mining Site"
-                    onChange={(e) => handleDEMChange(e.target.value)}
+                    onChange={handleDEMChange}
                     sx={{
                       color: 'white',
                       backgroundColor: 'background.default',
@@ -399,6 +398,9 @@ const DEMAnalysis = () => {
                 </Box>
               </CardContent>
             </Card>
+
+            {/* GEOLOGICAL RISK ANALYSIS & JUSTIFICATION & SLOPE HAZARD RAMP LEGEND (Full-Width below DEM Map) */}
+            <DemRiskJustificationCard statistics={mergedStatistics || demData?.statistics || { risk_level: 'High', risk_score: 60.6, max_slope_deg: 70.4, slope_area_gt_30: 6.6, slope_area_gt_48: 4.5, elevation_range: 465.3 }} />
           </motion.div>
         </Grid>
 

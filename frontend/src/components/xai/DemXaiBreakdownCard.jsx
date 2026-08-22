@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, Typography, Box, Stack, Chip, Divider, Slider } from '@mui/material'
-import { BarChart3 as BarChartIcon, HelpCircle as HelpIcon, ShieldAlert as ShieldIcon } from 'lucide-react'
+import { BarChart as BarChartIcon, Help as HelpIcon, Shield as ShieldIcon } from '@mui/icons-material'
 import { apiRequest } from '../../config/api'
 
 const DemXaiBreakdownCard = ({ selectedDEM, riskScore, riskLevel }) => {
@@ -31,7 +31,7 @@ const DemXaiBreakdownCard = ({ selectedDEM, riskScore, riskLevel }) => {
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <BarChartIcon style={{ color: '#a855f7', width: 20, height: 20 }} />
+            <BarChartIcon sx={{ color: '#a855f7', fontSize: '1.3rem' }} />
             <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, fontSize: '1rem' }}>
               XAI 3D Terrain Risk Attribution & What-If Simulator
             </Typography>

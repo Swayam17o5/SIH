@@ -1,4 +1,5 @@
 import React from 'react'
+import DemXaiBreakdownCard from '../xai/DemXaiBreakdownCard'
 import {
   Card,
   CardContent,
@@ -268,52 +269,22 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                   </Grid>
                 </Grid>
               </Box>
+
+              {/* End of Geomorphological Attributes */}
             </CardContent>
           </Card>
         </motion.div>
       )}
 
-      {/* Slope & Elevation Color Scale Legend */}
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.15, duration: 0.4 }}
-      >
-        <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-          <CardContent sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <PaletteIcon sx={{ color: '#3b82f6', mr: 1, fontSize: '1.2rem' }} />
-              <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, fontSize: '0.95rem' }}>
-                Slope Hazard Ramp Legend
-              </Typography>
-            </Box>
-            <Stack spacing={1}>
-              {colorScale.map((item, index) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Box
-                    sx={{
-                      width: 16,
-                      height: 16,
-                      backgroundColor: item.color,
-                      borderRadius: 0.75,
-                      flexShrink: 0,
-                      boxShadow: `0 0 6px ${item.color}50`
-                    }}
-                  />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, fontSize: '0.8rem' }}>
-                      {item.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.7rem' }}>
-                      {item.desc}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Stack>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* XAI 3D DEM Terrain Factor Decomposition & Counterfactual Simulator */}
+      {statistics && (
+        <DemXaiBreakdownCard
+          selectedDEM={selectedFile}
+          riskScore={riskScore}
+          riskLevel={riskLabel}
+        />
+      )}
+
     </Stack>
   )
 }
