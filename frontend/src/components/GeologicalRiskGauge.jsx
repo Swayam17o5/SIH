@@ -5,7 +5,7 @@ import { Shield as ShieldIcon, Warning as WarningIcon } from '@mui/icons-materia
 
 const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
   const riskScore = Number.isNaN(Number(rawRiskScore)) ? 35 : Number(rawRiskScore)
-  // Convert score 0-100 to angle (e.g. -90 deg to 90 deg for a semi-circle)
+  // Convert score 0-100 to angle (-90 deg left to +90 deg right)
   const score = Math.max(0, Math.min(100, riskScore))
   const rotationAngle = -90 + (score / 100) * 180
 
@@ -13,7 +13,7 @@ const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
     if (score > 70) {
       return {
         label: 'SEVERE INSTABILITY',
-        desc: 'Immediate landslide danger. evacuation suggested.',
+        desc: 'Immediate landslide danger. Evacuation suggested.',
         color: 'var(--status-danger)',
         bg: 'rgba(225, 29, 72, 0.08)'
       }
@@ -36,96 +36,100 @@ const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
 
   const status = getRiskStatus()
 
-  // SVG parameters for circular meter path
-  const radius = 80
-  const circumference = 2 * Math.PI * radius
-  // Half circle stroke-dasharray (semi-circle = circumference / 2)
-  const strokeDashoffset = circumference - (score / 100) * (circumference / 2)
+  // SVG parameters for exact 180-degree arch
+  const cx = 110
+  const cy = 110
+  const r = 78
+  const pathLength = Math.PI * r // Approx 245.044
+
+  // Arc path from left (32, 110) to right (188, 110)
+  const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`
+  const strokeDashoffset = pathLength * (1 - score / 100)
 
   return (
     <Card className="glass-card" sx={{ height: '100%', border: '1px solid var(--border-primary)' }}>
-      <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ alignSelf: 'flex-start', mb: 2 }}>
+      <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', height: '100%', p: 2.5 }}>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ alignSelf: 'flex-start', mb: 1, fontFamily: 'var(--font-mono)', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
           STABILITY ASSESSMENT INDEX
         </Typography>
 
         {/* Semi-circular dial */}
-        <Box sx={{ position: 'relative', width: 220, height: 130, mb: 1, overflow: 'hidden' }}>
-          <svg width="220" height="220" style={{ position: 'absolute', top: 0, left: 0 }}>
+        <Box sx={{ position: 'relative', width: 220, height: 125, my: 1, display: 'flex', justifyContent: 'center' }}>
+          <svg width="220" height="130" viewBox="0 0 220 130" style={{ overflow: 'visible' }}>
             <defs>
               {/* Dial gradient */}
-              <linearGradient id="dialGlow" x1="0" y1="0" x2="1" y2="0">
+              <linearGradient id="dialGlow" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="var(--status-success)" />
-                <stop offset="40%" stopColor="var(--status-warning)" />
+                <stop offset="45%" stopColor="var(--status-warning)" />
                 <stop offset="75%" stopColor="var(--status-orange)" />
                 <stop offset="100%" stopColor="var(--status-danger)" />
               </linearGradient>
               {/* Shadow filter */}
-              <filter id="dialShadow" x="-10%" y="-10%" width="120%" height="120%">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor={status.color} floodOpacity="0.4" />
+              <filter id="dialShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor={status.color} floodOpacity="0.5" />
               </filter>
             </defs>
 
-            {/* Gray background track */}
-            <circle
-              cx="110"
-              cy="110"
-              r={radius}
+            {/* Track Background */}
+            <path
+              d={arcPath}
               fill="none"
-              stroke="var(--border-primary)"
-              strokeWidth="10"
-              strokeDasharray={`${circumference / 2} ${circumference}`}
-              transform="rotate(180 110 110)"
+              stroke="#1e293b"
+              strokeWidth="12"
               strokeLinecap="round"
             />
 
-            {/* Glowing active track */}
-            <circle
-              cx="110"
-              cy="110"
-              r={radius}
+            {/* Active Colored Progress Arc */}
+            <path
+              d={arcPath}
               fill="none"
               stroke="url(#dialGlow)"
-              strokeWidth="10"
-              strokeDasharray={`${circumference / 2} ${circumference}`}
-              strokeDashoffset={strokeDashoffset}
-              transform="rotate(180 110 110)"
+              strokeWidth="12"
               strokeLinecap="round"
+              strokeDasharray={pathLength}
+              strokeDashoffset={strokeDashoffset}
               filter="url(#dialShadow)"
               style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
             />
 
-            {/* Center anchor pin */}
-            <circle cx="110" cy="110" r="8" fill="var(--bg-primary)" stroke="var(--border-primary)" strokeWidth="2" />
-            <circle cx="110" cy="110" r="3" fill={status.color} />
+            {/* Inner Scale Markers */}
+            <text x="24" y="124" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">0%</text>
+            <text x="103" y="24" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">50%</text>
+            <text x="184" y="124" fill="#64748b" fontSize="9" fontFamily="var(--font-mono)">100%</text>
 
             {/* NEEDLE INDICATOR */}
             <g
-              transform={`rotate(${rotationAngle} 110 110)`}
+              transform={`rotate(${rotationAngle} ${cx} ${cy})`}
               style={{ transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
+              {/* Sleek Tapered Pointer */}
               <polygon
-                points="108,110 110,25 112,110"
+                points="108,110 110,36 112,110"
                 fill={status.color}
-                style={{ filter: 'drop-shadow(0px 2px 3px rgba(0,0,0,0.5))' }}
+                style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.6))' }}
               />
             </g>
+
+            {/* Center Anchor Pin */}
+            <circle cx={cx} cy={cy} r="7" fill="var(--bg-primary)" stroke="var(--border-primary)" strokeWidth="2" />
+            <circle cx={cx} cy={cy} r="3" fill={status.color} />
           </svg>
 
-          {/* Value Display */}
+          {/* Value Display - Positioned cleanly below pivot pin */}
           <Box
             sx={{
               position: 'absolute',
-              bottom: 0,
+              top: '62px',
               left: 0,
               right: 0,
-              textAlign: 'center'
+              textAlign: 'center',
+              pointerEvents: 'none'
             }}
           >
-            <Typography variant="h3" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>
               {score.toFixed(1)}%
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem' }}>
               Rockfall Risk
             </Typography>
           </Box>
@@ -136,20 +140,20 @@ const GeologicalRiskGauge = ({ riskScore: rawRiskScore = 35 }) => {
           sx={{
             width: '100%',
             backgroundColor: status.bg,
-            borderRadius: 3,
-            p: 2,
-            border: `1px solid ${status.color}20`,
+            borderRadius: '4px',
+            p: 1.8,
+            border: `1px solid ${status.color}30`,
             textAlign: 'center',
-            mt: 2
+            mt: 1
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 0.5 }}>
             {score > 40 ? <WarningIcon sx={{ color: status.color, fontSize: 18 }} /> : <ShieldIcon sx={{ color: status.color, fontSize: 18 }} />}
-            <Typography variant="body1" sx={{ color: status.color, fontWeight: 700, fontSize: '0.95rem' }}>
+            <Typography variant="body1" sx={{ color: status.color, fontWeight: 700, fontSize: '0.88rem', letterSpacing: '0.3px' }}>
               {status.label}
             </Typography>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.78rem' }}>
             {status.desc}
           </Typography>
         </Box>
