@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Card, CardContent, Typography, Box, Stack, Chip, Button, ButtonGroup } from '@mui/material'
-import { Eye as EyeIcon, Flame as FireIcon, Layers as LayersIcon } from 'lucide-react'
+import { Visibility as EyeIcon, Whatshot as FireIcon, Layers as LayersIcon } from '@mui/icons-material'
 
 const GradCamOverlayCard = ({ detection }) => {
   const [activeTab, setActiveTab] = useState('gradcam') // 'original', 'bbox', 'gradcam'
@@ -14,7 +14,7 @@ const GradCamOverlayCard = ({ detection }) => {
       <CardContent sx={{ p: 2.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FireIcon style={{ color: '#ef4444', width: 20, height: 20 }} />
+            <FireIcon sx={{ color: '#ef4444', fontSize: '1.3rem' }} />
             <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, fontSize: '1.05rem' }}>
               XAI Grad-CAM CNN Feature Attention Map
             </Typography>

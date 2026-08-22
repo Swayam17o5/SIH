@@ -101,7 +101,7 @@ const Dashboard = ({ systemStatus, connectionStatus, lastMessage, setCurrentPage
   useEffect(() => {
     if (lastMessage) {
       try {
-        const data = JSON.parse(lastMessage)
+        const data = typeof lastMessage === 'string' ? JSON.parse(lastMessage) : lastMessage
         
         if (data.type === 'detection_update') {
           setDetectionStats(prev => ({

@@ -2,7 +2,13 @@ import os
 import glob
 import logging
 import numpy as np
-import rasterio
+try:
+    import rasterio
+    HAS_RASTERIO = True
+except ImportError:
+    HAS_RASTERIO = False
+    rasterio = None
+
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 from .config import MONITORING_ZONES, AOI_CONFIG
@@ -14,29 +20,25 @@ logger = logging.getLogger(__name__)
 SENTINEL_WAVELENGTH_MM = 55.462  # 5.5462 cm
 PHASE_TO_DISPLACEMENT_FACTOR = -(SENTINEL_WAVELENGTH_MM / (4.0 * np.pi))  # ~ -4.413 mm per radian
 
-def latlon_to_pixel(raster: rasterio.DatasetReader, lat: float, lon: float) -> Tuple[int, int]:
+def latlon_to_pixel(raster: Any, lat: float, lon: float) -> Tuple[int, int]:
     """Convert latitude/longitude coordinates to pixel x/y indices inside the raster"""
-    # Sample input lat/lon, convert to raster's CRS
-    # Since our DEMs and coordinates are in WGS84 (EPSG:4326), and HyP3 outputs are also geocoded
-    # in WGS84 or UTM, rasterio's transform can map it.
+    if not HAS_RASTERIO or raster is None:
+        return 0, 0
     row, col = raster.index(lon, lat)
     return int(row), int(col)
 
-def extract_point_value(raster: rasterio.DatasetReader, lat: float, lon: float, band: int = 1) -> Optional[float]:
+def extract_point_value(raster: Any, lat: float, lon: float, band: int = 1) -> Optional[float]:
     """Extract cell value at specific lat/lon coordinate from a raster band"""
+    if not HAS_RASTERIO or raster is None:
+        return None
     try:
         row, col = latlon_to_pixel(raster, lat, lon)
-        
-        # Check if coordinates are within bounds
         if 0 <= row < raster.height and 0 <= col < raster.width:
             val = float(raster.read(band)[row, col])
-            
-            # Handle nodata values
             if raster.nodata is not None and val == raster.nodata:
                 return None
             if np.isnan(val):
                 return None
-                
             return val
     except Exception as e:
         logger.error(f"Error extracting raster coordinate ({lat}, {lon}): {e}")

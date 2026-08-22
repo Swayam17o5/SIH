@@ -156,8 +156,9 @@ const Dem3DViewer = ({ mesh3d, siteName, onTerrainComputed }) => {
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.1
-
+    renderer.domElement.style.width = '100%'
+    renderer.domElement.style.height = '100%'
+    renderer.domElement.style.display = 'block'
     container.replaceChildren(renderer.domElement)
     stateRef.current.renderer = renderer
 

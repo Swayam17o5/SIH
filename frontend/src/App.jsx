@@ -31,7 +31,8 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Videocam as VideocamIcon,
-  Terrain as TerrainIcon
+  Terrain as TerrainIcon,
+  SettingsInputAntenna as AntennaIcon
 } from '@mui/icons-material'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
@@ -43,6 +44,7 @@ import RiskAssessment from './pages/RiskAssessment'
 import Settings from './pages/Settings'
 import LiveMonitoring from './pages/LiveMonitoring'
 import DEMAnalysis from './pages/DEMAnalysis'
+import SatelliteMonitoring from './pages/SatelliteMonitoring'
 
 // WebSocket hook for real-time updates
 import useWebSocket from './hooks/useWebSocket'
@@ -81,6 +83,12 @@ function App() {
       text: 'Live Monitoring',
       icon: <VideocamIcon />,
       path: 'live-monitoring',
+      color: 'var(--accent-primary)'
+    },
+    {
+      text: 'Satellite InSAR',
+      icon: <AntennaIcon />,
+      path: 'satellite-insar',
       color: 'var(--accent-primary)'
     },
     {
@@ -133,7 +141,7 @@ function App() {
   useEffect(() => {
     if (lastMessage) {
       try {
-        const data = JSON.parse(lastMessage)
+        const data = typeof lastMessage === 'string' ? JSON.parse(lastMessage) : lastMessage
         
         switch (data.type) {
           case 'risk_update':
@@ -294,6 +302,8 @@ function App() {
         return <Dashboard {...pageProps} />
       case 'live-monitoring':
         return <LiveMonitoring {...pageProps} />
+      case 'satellite-insar':
+        return <SatelliteMonitoring {...pageProps} />
       case 'dem-analysis':
         return <DEMAnalysis {...pageProps} />
       case 'detection':

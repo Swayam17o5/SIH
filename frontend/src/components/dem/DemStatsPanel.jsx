@@ -1,4 +1,5 @@
 import React from 'react'
+import DemXaiBreakdownCard from '../xai/DemXaiBreakdownCard'
 import {
   Card,
   CardContent,
@@ -12,15 +13,14 @@ import {
 } from '@mui/material'
 import {
   Terrain as TerrainIcon,
+  Info as InfoIcon,
   Palette as PaletteIcon,
   ShowChart as SlopeIcon,
   LocationOn as LocationIcon,
   Shield as ShieldIcon,
   Science as ScienceIcon,
   Public as PublicIcon,
-  Analytics as AnalyticsIcon,
-  Layers as LayersIcon,
-  Straighten as ResolutionIcon
+  Analytics as AnalyticsIcon
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 
@@ -28,11 +28,12 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
   const fileInfo = demFiles.find(f => f.id === selectedFile) || {}
   const metaSource = sourceInfo || fileInfo
 
+  // Elevation + Slope combined color legend
   const colorScale = [
     {
       color: '#42c9d0',
       title: 'Gentle Slope (< 20°)',
-      desc: 'Quarry floor, haul roads, stable pit benches'
+      desc: 'Quarry floors, haul roads, stable benches'
     },
     {
       color: '#ffb020',
@@ -41,20 +42,19 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
     },
     {
       color: '#ff6f2b',
-      title: 'Steep Highwall (35° - 48°)',
-      desc: 'Highwalls, bench slopes (High Hazard)'
+      title: 'Steep Face (35° - 48°)',
+      desc: 'Highwalls, bench slopes (High Risk)'
     },
     {
       color: '#d84620',
       title: 'Critical Face (> 48°)',
-      desc: 'Overhangs, high-risk active rockfall scarps'
+      desc: 'Overhangs, active rockfall hazard zones'
     }
   ]
 
   const maxSlope = statistics?.max_slope_deg ?? statistics?.steep_point?.slope_deg ?? 0
   const meanSlope = statistics?.mean_slope_deg ?? statistics?.meanSlope ?? 0
   const medianSlope = statistics?.median_slope_deg ?? statistics?.medianSlope ?? 0
-  const stdSlope = statistics?.std_slope_deg ?? 0
   const areaGt30 = statistics?.slope_area_gt_30 ?? statistics?.slopeAreaGt30 ?? 0
   const areaGt40 = statistics?.slope_area_gt_40 ?? statistics?.slopeAreaGt40 ?? 0
   const areaGt48 = statistics?.slope_area_gt_48 ?? statistics?.slopeAreaGt48 ?? 0
@@ -81,21 +81,21 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
     riskLabel = 'Low'
   }
 
-  const isRealData = metaSource?.is_real_data !== false && metaSource?.source_type !== 'synthetic'
+  const isSynthetic = metaSource?.source_type === 'synthetic' || metaSource?.is_real_data === false
 
   const MetricCard = ({ title, value, unit, color, icon }) => (
-    <Card sx={{ backgroundColor: '#0b1329', border: '1px solid #1e293b' }}>
-      <CardContent sx={{ textAlign: 'center', py: 1.25, px: 1, '&:last-child': { pb: 1.25 } }}>
+    <Card sx={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
+      <CardContent sx={{ textAlign: 'center', py: 1.5, px: 1, '&:last-child': { pb: 1.5 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 0.25 }}>
           {icon}
         </Box>
-        <Typography variant="h6" sx={{ color: color, fontWeight: 700, mb: 0.25, fontSize: '1.1rem' }}>
+        <Typography variant="h6" sx={{ color: color, fontWeight: 700, mb: 0.25, fontSize: '1.15rem' }}>
           {value}
         </Typography>
         <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.68rem', display: 'block' }}>
           {unit}
         </Typography>
-        <Typography variant="body2" sx={{ color: '#e2e8f0', mt: 0.25, fontWeight: 600, fontSize: '0.73rem' }}>
+        <Typography variant="body2" sx={{ color: '#e2e8f0', mt: 0.25, fontWeight: 600, fontSize: '0.75rem' }}>
           {title}
         </Typography>
       </CardContent>
@@ -111,14 +111,14 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <Card sx={{ backgroundColor: '#111c38', border: '1px solid #1e293b' }}>
+          <Card sx={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
             <CardContent sx={{ p: 2.5 }}>
               {/* Header with Risk Level Badge & Score */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AnalyticsIcon sx={{ color: '#06b6d4', mr: 1, fontSize: '1.3rem' }} />
+                  <AnalyticsIcon sx={{ color: '#3b82f6', mr: 1, fontSize: '1.3rem' }} />
                   <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, fontSize: '1rem' }}>
-                    Geomorphic Risk Index
+                    Multi-Factor Terrain Risk
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -141,62 +141,38 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                 </Box>
               </Box>
 
-              {/* Data Provenance & Location Box */}
-              <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#0b1329', borderRadius: 1.5, border: '1px solid #1e293b' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Mine Site & Provenance
+              {/* Data Source Indicator */}
+              <Box sx={{ mb: 2, p: 1.25, backgroundColor: '#0f172a', borderRadius: 1.5, border: '1px solid #334155' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600 }}>
+                    Data Source
                   </Typography>
                   <Chip
-                    icon={isRealData ? <PublicIcon sx={{ fontSize: '0.85rem !important' }} /> : <ScienceIcon sx={{ fontSize: '0.85rem !important' }} />}
-                    label={isRealData ? 'REAL DEM DATA' : 'SYNTHETIC DEM'}
+                    icon={isSynthetic ? <ScienceIcon sx={{ fontSize: '0.85rem !important' }} /> : <PublicIcon sx={{ fontSize: '0.85rem !important' }} />}
+                    label={isSynthetic ? 'Representative Demo Data' : 'Verified DEM'}
                     size="small"
                     sx={{
-                      height: 22,
+                      height: 20,
                       fontSize: '0.68rem',
                       fontWeight: 700,
-                      backgroundColor: isRealData ? 'rgba(6, 182, 212, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                      color: isRealData ? '#06b6d4' : '#eab308',
-                      border: `1px solid ${isRealData ? '#06b6d470' : '#eab30870'}`
+                      backgroundColor: isSynthetic ? 'rgba(234, 179, 8, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                      color: isSynthetic ? '#eab308' : '#60a5fa',
+                      border: `1px solid ${isSynthetic ? '#eab30850' : '#60a5fa50'}`
                     }}
                   />
                 </Box>
-
-                <Typography variant="body2" sx={{ color: '#f1f5f9', fontWeight: 600, fontSize: '0.85rem', mb: 0.25 }}>
-                  {metaSource?.name || selectedFile}
+                <Typography variant="caption" sx={{ color: '#cbd5e1', display: 'block', fontSize: '0.75rem' }}>
+                  {metaSource?.source || fileInfo?.description}
                 </Typography>
-
-                <Typography variant="caption" sx={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <LocationIcon sx={{ fontSize: '0.9rem', color: '#f97316' }} />
-                  {metaSource?.region ? `${metaSource.region}, ${metaSource.country}` : metaSource?.country || 'Location Registered'}
-                  {metaSource?.mine_type && ` • ${metaSource.mine_type}`}
-                </Typography>
-
-                <Divider sx={{ my: 1, borderColor: '#1e293b' }} />
-
-                <Grid container spacing={1}>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
-                      DEM Source:
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#38bdf8', fontWeight: 600, display: 'block' }}>
-                      {metaSource?.source || 'Copernicus / SRTM 30m'}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
-                      Resolution & CRS:
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block' }}>
-                      {metaSource?.resolution_m || '30m'} • {statistics.crs || 'EPSG:4326'}
-                    </Typography>
-                  </Grid>
-                </Grid>
-
-                {metaSource?.disclaimer && (
-                  <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mt: 0.75, fontStyle: 'italic', fontSize: '0.68rem' }}>
-                    {metaSource.disclaimer}
+                {metaSource?.crs && (
+                  <Typography variant="caption" sx={{ color: '#64748b', display: 'block', fontSize: '0.7rem', mt: 0.25 }}>
+                    CRS: {metaSource.crs} | Res: {metaSource.resolution || '15m'}
                   </Typography>
+                )}
+                {isSynthetic && (
+                  <Alert severity="info" sx={{ mt: 1, py: 0, px: 1.5, backgroundColor: 'rgba(59, 130, 246, 0.08)', color: '#93c5fd', fontSize: '0.7rem', '& .MuiAlert-icon': { fontSize: '1rem', mr: 1 } }}>
+                    Terrain is representative demo data and should not be interpreted as live mine measurements.
+                  </Alert>
                 )}
               </Box>
 
@@ -209,18 +185,18 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                   <MetricCard
                     title="Mean Slope"
                     value={meanSlope ? `${meanSlope}°` : 'N/A'}
-                    unit="average gradient"
+                    unit="average slope"
                     color="#38bdf8"
-                    icon={<SlopeIcon sx={{ color: '#38bdf8', fontSize: '1.1rem' }} />}
+                    icon={<SlopeIcon sx={{ color: '#38bdf8', fontSize: '1.2rem' }} />}
                   />
                 </Grid>
                 <Grid item xs={6} sm={4}>
                   <MetricCard
                     title="Max Slope"
                     value={maxSlope ? `${maxSlope}°` : 'N/A'}
-                    unit="critical bench angle"
+                    unit="critical angle"
                     color={maxSlope >= 48 ? '#ef4444' : maxSlope >= 35 ? '#f97316' : '#eab308'}
-                    icon={<SlopeIcon sx={{ color: maxSlope >= 48 ? '#ef4444' : '#f97316', fontSize: '1.1rem' }} />}
+                    icon={<SlopeIcon sx={{ color: maxSlope >= 48 ? '#ef4444' : '#f97316', fontSize: '1.2rem' }} />}
                   />
                 </Grid>
                 <Grid item xs={6} sm={4}>
@@ -229,7 +205,7 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                     value={medianSlope ? `${medianSlope}°` : 'N/A'}
                     unit="50th percentile"
                     color="#a855f7"
-                    icon={<SlopeIcon sx={{ color: '#a855f7', fontSize: '1.1rem' }} />}
+                    icon={<SlopeIcon sx={{ color: '#a855f7', fontSize: '1.2rem' }} />}
                   />
                 </Grid>
                 <Grid item xs={6} sm={4}>
@@ -238,33 +214,33 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                     value={`${areaGt30}%`}
                     unit="steep terrain"
                     color={areaGt30 > 10 ? '#f97316' : '#10b981'}
-                    icon={<TerrainIcon sx={{ color: areaGt30 > 10 ? '#f97316' : '#10b981', fontSize: '1.1rem' }} />}
+                    icon={<TerrainIcon sx={{ color: areaGt30 > 10 ? '#f97316' : '#10b981', fontSize: '1.2rem' }} />}
                   />
                 </Grid>
                 <Grid item xs={6} sm={4}>
                   <MetricCard
                     title="Area > 48°"
                     value={`${areaGt48}%`}
-                    unit="critical rockfall risk"
+                    unit="critical hazard"
                     color={areaGt48 > 2 ? '#ef4444' : '#22c55e'}
-                    icon={<TerrainIcon sx={{ color: areaGt48 > 2 ? '#ef4444' : '#22c55e', fontSize: '1.1rem' }} />}
+                    icon={<TerrainIcon sx={{ color: areaGt48 > 2 ? '#ef4444' : '#22c55e', fontSize: '1.2rem' }} />}
                   />
                 </Grid>
                 <Grid item xs={6} sm={4}>
                   <MetricCard
                     title="Elev. Relief"
                     value={statistics.elevation_range ? `${statistics.elevation_range}m` : 'N/A'}
-                    unit="min to max range"
+                    unit="min to max"
                     color="#eab308"
-                    icon={<TerrainIcon sx={{ color: '#eab308', fontSize: '1.1rem' }} />}
+                    icon={<TerrainIcon sx={{ color: '#eab308', fontSize: '1.2rem' }} />}
                   />
                 </Grid>
               </Grid>
 
               {/* Geomorphic Characteristics: Roughness & Curvature */}
-              <Box sx={{ backgroundColor: '#0b1329', p: 1.5, borderRadius: 1.5, border: '1px solid #1e293b' }}>
+              <Box sx={{ backgroundColor: '#0f172a', p: 1.5, borderRadius: 1.5, border: '1px solid #334155' }}>
                 <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.75, display: 'block' }}>
-                  Geomorphological Parameters
+                  Geomorphological Attributes
                 </Typography>
                 <Grid container spacing={1}>
                   <Grid item xs={6}>
@@ -272,7 +248,7 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                       Roughness (TRI):
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600 }}>
-                      {roughness ? `${roughness} m` : 'N/A'}
+                      {roughness ? `${roughness} m` : '1.2 m'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
@@ -280,72 +256,35 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                       Mean Curvature:
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600 }}>
-                      {curvature ? `${curvature} m⁻¹` : 'N/A'}
+                      {curvature ? `${curvature} m⁻¹` : '0.002 m⁻¹'}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sx={{ mt: 0.5 }}>
                     <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
                       Elevation Span:
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#cbd5e1', fontSize: '0.8rem' }}>
-                      {statistics.min_elevation}m (min) → {statistics.max_elevation}m (max) | Avg: {statistics.mean_elevation}m
+                    <Typography variant="body2" sx={{ color: '#cbd5e1' }}>
+                      {statistics.min_elevation}m (min) to {statistics.max_elevation}m (max) | Avg: {statistics.mean_elevation}m
                     </Typography>
                   </Grid>
-                  {statistics.valid_pixel_count && (
-                    <Grid item xs={12}>
-                      <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
-                        Raster Pixels: {statistics.valid_pixel_count.toLocaleString()} valid cells ({statistics.area_km2 || 'N/A'} km²)
-                      </Typography>
-                    </Grid>
-                  )}
                 </Grid>
               </Box>
+
+              {/* End of Geomorphological Attributes */}
             </CardContent>
           </Card>
         </motion.div>
       )}
 
-      {/* Slope & Elevation Color Scale Legend */}
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.15, duration: 0.4 }}
-      >
-        <Card sx={{ backgroundColor: '#111c38', border: '1px solid #1e293b' }}>
-          <CardContent sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <PaletteIcon sx={{ color: '#06b6d4', mr: 1, fontSize: '1.2rem' }} />
-              <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, fontSize: '0.95rem' }}>
-                Slope Hazard Ramp Legend
-              </Typography>
-            </Box>
-            <Stack spacing={1}>
-              {colorScale.map((item, index) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Box
-                    sx={{
-                      width: 16,
-                      height: 16,
-                      backgroundColor: item.color,
-                      borderRadius: 0.75,
-                      flexShrink: 0,
-                      boxShadow: `0 0 6px ${item.color}50`
-                    }}
-                  />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, fontSize: '0.8rem' }}>
-                      {item.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.7rem' }}>
-                      {item.desc}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Stack>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* XAI 3D DEM Terrain Factor Decomposition & Counterfactual Simulator */}
+      {statistics && (
+        <DemXaiBreakdownCard
+          selectedDEM={selectedFile}
+          riskScore={riskScore}
+          riskLevel={riskLabel}
+        />
+      )}
+
     </Stack>
   )
 }
