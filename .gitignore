@@ -310,3 +310,4 @@ backend/venv/
 backend/.venv/
 **/node_modules/
 **/__pycache__/
+backend/data/satellite_cache/
