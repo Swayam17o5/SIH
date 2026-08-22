@@ -36,7 +36,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { motion } from 'framer-motion'
 import GeologicalSlopeMonitor from '../components/GeologicalSlopeMonitor'
 import GeologicalRiskGauge from '../components/GeologicalRiskGauge'
-import ShapWaterfallCard from '../components/xai/ShapWaterfallCard'
 
 const Dashboard = ({ systemStatus, connectionStatus, lastMessage, setCurrentPage }) => {
   const [recentActivities, setRecentActivities] = useState([])
@@ -102,7 +101,7 @@ const Dashboard = ({ systemStatus, connectionStatus, lastMessage, setCurrentPage
   useEffect(() => {
     if (lastMessage) {
       try {
-        const data = typeof lastMessage === 'string' ? JSON.parse(lastMessage) : lastMessage
+        const data = JSON.parse(lastMessage)
         
         if (data.type === 'detection_update') {
           setDetectionStats(prev => ({
@@ -598,11 +597,6 @@ const Dashboard = ({ systemStatus, connectionStatus, lastMessage, setCurrentPage
           </motion.div>
         </Grid>
       </Grid>
-
-      {/* XAI SHAP Feature Importance Section */}
-      <Box sx={{ mb: 4 }}>
-        <ShapWaterfallCard />
-      </Box>
       
       {/* Charts Section */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
