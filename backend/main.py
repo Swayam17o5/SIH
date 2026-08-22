@@ -29,6 +29,8 @@ import json
 import os
 import sys
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 from datetime import datetime
 import logging
 from pathlib import Path
@@ -460,6 +462,131 @@ class DetectionResult(BaseModel):
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
     image_dimensions: Dict[str, int] = Field(..., description="Image width and height")
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Detection timestamp in ISO format")
+    diagnostics: Optional[Dict[str, Any]] = None
+
+
+DETECTION_IOU_THRESHOLD = 0.45
+
+
+def _axis_starts(length: int, tile_length: int, overlap: float) -> List[int]:
+    """Return stable crop starts, including the far edge of an oversized image."""
+    if length <= tile_length:
+        return [0]
+    step = max(1, int(tile_length * (1.0 - overlap)))
+    starts = list(range(0, length - tile_length + 1, step))
+    final_start = length - tile_length
+    if starts[-1] != final_start:
+        starts.append(final_start)
+    return starts
+
+
+def _detections_from_results(results, model, image_width: int, image_height: int,
+                             offset_x: int = 0, offset_y: int = 0) -> List[Dict[str, Any]]:
+    """Convert Ultralytics boxes to original-image coordinates."""
+    detections = []
+    for result in results:
+        if result.boxes is None:
+            continue
+        for box in result.boxes:
+            class_id = int(box.cls[0])
+            class_name = model.names[class_id] if hasattr(model, "names") and class_id in model.names else "rock"
+            x1, y1, x2, y2 = [float(value) for value in box.xyxy[0].tolist()]
+            x1 = max(0.0, min(float(image_width), x1 + offset_x))
+            y1 = max(0.0, min(float(image_height), y1 + offset_y))
+            x2 = max(0.0, min(float(image_width), x2 + offset_x))
+            y2 = max(0.0, min(float(image_height), y2 + offset_y))
+            if x2 <= x1 or y2 <= y1:
+                continue
+            detections.append({
+                "confidence": float(box.conf[0]),
+                "bbox": [x1, y1, x2, y2],
+                "x1": x1,
+                "y1": y1,
+                "x2": x2,
+                "y2": y2,
+                "class": class_name.lower(),
+                "class_name": class_name,
+                "class_id": class_id,
+                "area": (x2 - x1) * (y2 - y1)
+            })
+    return detections
+
+
+def _box_iou(first: List[float], second: List[float]) -> float:
+    """Calculate IoU for two xyxy boxes."""
+    left = max(first[0], second[0])
+    top = max(first[1], second[1])
+    right = min(first[2], second[2])
+    bottom = min(first[3], second[3])
+    intersection = max(0.0, right - left) * max(0.0, bottom - top)
+    first_area = max(0.0, first[2] - first[0]) * max(0.0, first[3] - first[1])
+    second_area = max(0.0, second[2] - second[0]) * max(0.0, second[3] - second[1])
+    union = first_area + second_area - intersection
+    return intersection / union if union else 0.0
+
+
+def _class_aware_nms(detections: List[Dict[str, Any]], iou_threshold: float) -> List[Dict[str, Any]]:
+    """Keep highest-confidence boxes while suppressing overlapping boxes per class."""
+    kept = []
+    for class_id in sorted({d["class_id"] for d in detections}):
+        candidates = sorted((d for d in detections if d["class_id"] == class_id),
+                            key=lambda d: d["confidence"], reverse=True)
+        while candidates:
+            selected = candidates.pop(0)
+            kept.append(selected)
+            candidates = [candidate for candidate in candidates
+                          if _box_iou(selected["bbox"], candidate["bbox"]) < iou_threshold]
+    return sorted(kept, key=lambda d: d["confidence"], reverse=True)
+
+
+def _run_detection(image_array: np.ndarray, confidence_threshold: float,
+                   inference_mode: str, tile_size: int, overlap: float) -> tuple:
+    """Run standard or standard-plus-tiled inference using the loaded YOLO model."""
+    image_height, image_width = image_array.shape[:2]
+    normal_start = time.perf_counter()
+    normal_results = detection_model(
+        image_array, conf=confidence_threshold, iou=DETECTION_IOU_THRESHOLD,
+        imgsz=640, verbose=False
+    )
+    normal_time = (time.perf_counter() - normal_start) * 1000
+    normal_detections = _detections_from_results(
+        normal_results, detection_model, image_width, image_height
+    )
+
+    should_tile = inference_mode == "tiled" or (inference_mode == "auto" and not normal_detections)
+    tiled_detections = []
+    tiled_time = 0.0
+    if should_tile:
+        tiled_start = time.perf_counter()
+        for top in _axis_starts(image_height, tile_size, overlap):
+            for left in _axis_starts(image_width, tile_size, overlap):
+                tile = image_array[top:min(top + tile_size, image_height), left:min(left + tile_size, image_width)]
+                tile_results = detection_model(
+                    tile, conf=confidence_threshold, iou=DETECTION_IOU_THRESHOLD,
+                    imgsz=640, verbose=False
+                )
+                tiled_detections.extend(_detections_from_results(
+                    tile_results, detection_model, image_width, image_height, left, top
+                ))
+        tiled_time = (time.perf_counter() - tiled_start) * 1000
+
+    if should_tile:
+        final_detections = _class_aware_nms(tiled_detections, DETECTION_IOU_THRESHOLD)
+        selected_mode = "tiled"
+    else:
+        final_detections = normal_detections
+        selected_mode = "standard"
+    return final_detections, {
+        "mode": selected_mode,
+        "normal_detections": len(normal_detections),
+        "tiled_detections": len(tiled_detections),
+        "final_detections": len(final_detections),
+        "normal_inference_time_ms": normal_time,
+        "tiled_inference_time_ms": tiled_time,
+        "tile_size": tile_size,
+        "tile_overlap": overlap,
+        "nms_iou_threshold": DETECTION_IOU_THRESHOLD
+    }
 
 class SystemStatus(BaseModel):
     """System status response"""
@@ -749,109 +876,95 @@ async def predict_risk(data: EnvironmentalData):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 @app.post("/api/detect-rocks", response_model=DetectionResult)
-async def detect_rocks(file: UploadFile = File(...), confidence_threshold: float = 0.5):
+async def detect_rocks(file: UploadFile = File(...), confidence_threshold: float = 0.5,
+                       inference_mode: str = "auto", tile_size: int = 448,
+                       tile_overlap: float = 0.25):
     """Detect rocks in uploaded image"""
     global detection_model
+
+    if not 0.0 <= confidence_threshold <= 1.0:
+        raise HTTPException(status_code=422, detail="confidence_threshold must be between 0 and 1")
+    if inference_mode not in {"standard", "tiled", "auto"}:
+        raise HTTPException(status_code=422, detail="inference_mode must be standard, tiled, or auto")
+    if not 320 <= tile_size <= 2048:
+        raise HTTPException(status_code=422, detail="tile_size must be between 320 and 2048")
+    if not 0.0 <= tile_overlap < 0.8:
+        raise HTTPException(status_code=422, detail="tile_overlap must be between 0 and 0.8")
     
+    # 1. Robust file format and type validation
+    content_type_ok = file.content_type and file.content_type.startswith('image/')
+    extension_ok = file.filename and os.path.splitext(file.filename.lower())[1] in ['.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff']
+    
+    if not (content_type_ok or extension_ok):
+        raise HTTPException(status_code=400, detail="File must be an image (JPEG, PNG, WEBP, TIF)")
+
     if not detection_model or not YOLO_AVAILABLE:
-        # Provide mock detection when model isn't available
-        logger.warning("Using mock detection - YOLO model not loaded")
-        
-        if not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="File must be an image")
-        
-        try:
-            # Read image to get dimensions
-            image_data = await file.read()
-            image = Image.open(io.BytesIO(image_data))
-            width, height = image.size
-            
-            # Generate mock detections
-            import random
-            random.seed(42)  # For consistent mock results
-            
-            num_detections = random.randint(1, 5)
-            mock_detections = []
-            
-            for i in range(num_detections):
-                # Generate random bounding box
-                x1 = random.randint(0, width // 2)
-                y1 = random.randint(0, height // 2)
-                x2 = x1 + random.randint(50, min(200, width - x1))
-                y2 = y1 + random.randint(50, min(200, height - y1))
-                
-                mock_detections.append({
-                    "confidence": random.uniform(0.6, 0.95),
-                    "bbox": [x1, y1, x2, y2],
-                    "class": "rock",
-                    "class_id": 0
-                })
-            
-            return DetectionResult(
-                detections=mock_detections,
-                total_detections=len(mock_detections),
-                confidence_threshold=confidence_threshold,
-                processing_time_ms=random.uniform(100, 500),
-                image_dimensions={"width": width, "height": height},
-                timestamp=datetime.now()
-            )
-            
-        except Exception as e:
-            logger.error(f"Error in mock detection: {e}")
-            raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
-    
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="File must be an image")
+        logger.error("Detection requested while the YOLO model is unavailable")
+        raise HTTPException(status_code=503, detail="Detection service unavailable.")
     
     try:
         # Read and process image
         image_data = await file.read()
-        image = Image.open(io.BytesIO(image_data))
-        
-        # Convert PIL image to numpy array for YOLO
-        import numpy as np
-        import cv2
-        
-        # Convert PIL to RGB if needed
-        if image.mode != 'RGB':
+        if not image_data:
+            raise HTTPException(status_code=400, detail="Unable to decode uploaded image.")
+        if len(image_data) > 25 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Image is too large. Maximum size is 25 MB.")
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            image.load()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Unable to decode uploaded image.")
+
+        source_format = image.format or "RAW"
+        # Convert PIL image to RGB cleanly (handling alpha transparency)
+        if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
+            bg = Image.new('RGB', image.size, (255, 255, 255))
+            bg.paste(image, mask=image.split()[-1])
+            image = bg
+        elif image.mode != 'RGB':
             image = image.convert('RGB')
         
         # Convert to numpy array
+        import numpy as np
         img_array = np.array(image)
         
-        # Run detection directly on numpy array
-        start_time = datetime.now()
-        results = detection_model(img_array, conf=confidence_threshold)
-        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+        detections, inference_diagnostics = _run_detection(
+            img_array, confidence_threshold, inference_mode, tile_size, tile_overlap
+        )
+        total_detections = len(detections)
+        processing_time = inference_diagnostics["normal_inference_time_ms"] + inference_diagnostics["tiled_inference_time_ms"]
         
-        # Process results
-        detections = []
-        total_detections = 0
-        
-        for result in results:
-            if result.boxes is not None:
-                for box in result.boxes:
-                    detection = {
-                        "confidence": float(box.conf[0]),
-                        "bbox": [
-                            float(box.xyxy[0][0]),
-                            float(box.xyxy[0][1]), 
-                            float(box.xyxy[0][2]),
-                            float(box.xyxy[0][3])
-                        ],
-                        "class": "rock",
-                        "class_id": 0,
-                        "area": float((box.xyxy[0][2] - box.xyxy[0][0]) * (box.xyxy[0][3] - box.xyxy[0][1]))
-                    }
-                    detections.append(detection)
-                    total_detections += 1
-        
+        # Get active device
+        active_device = "cpu"
+        try:
+            active_device = str(next(detection_model.parameters()).device)
+        except Exception:
+            pass
+
+        diagnostics = {
+            "filename": file.filename,
+            "width": image.width,
+            "height": image.height,
+            "format": source_format,
+            "model_name": "YOLOv8 Custom fine-tuned",
+            "model_path": "outputs/experiment_20250916_210441/weights/best.pt",
+            "classes": list(detection_model.names.values()) if hasattr(detection_model, 'names') else ["Rock"],
+            "device": active_device,
+            "inference_time_ms": float(processing_time),
+            "iou_threshold": 0.45,
+            "confidence_threshold": float(confidence_threshold),
+            "inference_mode_requested": inference_mode,
+            **inference_diagnostics
+        } if DEBUG else None
+
         result = DetectionResult(
             detections=detections,
             total_detections=total_detections,
             confidence_threshold=confidence_threshold,
             processing_time_ms=processing_time,
-            image_dimensions={"width": image.width, "height": image.height}
+            image_dimensions={"width": image.width, "height": image.height},
+            timestamp=datetime.now().isoformat(),
+            diagnostics=diagnostics
         )
         
         # Broadcast detection result
@@ -863,9 +976,11 @@ async def detect_rocks(file: UploadFile = File(...), confidence_threshold: float
         
         return result
             
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logger.error(f"Error in rock detection: {e}")
-        raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Image processing failed.")
 
 @app.get("/api/test-image")
 async def get_test_image():
@@ -916,42 +1031,7 @@ async def detect_default_test_image(confidence_threshold: float = 0.5):
         default_image_path = image_files[0]
         
         if not detection_model or not YOLO_AVAILABLE:
-            # Provide mock detection when model isn't available
-            logger.warning("Using mock detection - YOLO model not loaded")
-            
-            # Read image to get dimensions
-            image = Image.open(default_image_path)
-            width, height = image.size
-            
-            # Generate mock detections
-            import random
-            random.seed(42)  # For consistent mock results
-            
-            num_detections = random.randint(2, 6)
-            mock_detections = []
-            
-            for i in range(num_detections):
-                # Generate random bounding box
-                x1 = random.randint(0, width // 2)
-                y1 = random.randint(0, height // 2)
-                x2 = x1 + random.randint(50, min(200, width - x1))
-                y2 = y1 + random.randint(50, min(200, height - y1))
-                
-                mock_detections.append({
-                    "confidence": random.uniform(0.7, 0.95),
-                    "bbox": [x1, y1, x2, y2],
-                    "class": "rock",
-                    "class_id": 0
-                })
-            
-            return DetectionResult(
-                detections=mock_detections,
-                total_detections=len(mock_detections),
-                confidence_threshold=confidence_threshold,
-                processing_time_ms=random.uniform(100, 500),
-                image_dimensions={"width": width, "height": height},
-                timestamp=datetime.now().isoformat()
-            )
+            raise HTTPException(status_code=503, detail="Detection service unavailable.")
         
         # Load and process the test image
         image = Image.open(default_image_path)
