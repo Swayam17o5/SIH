@@ -30,22 +30,22 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
   // Elevation + Slope combined color legend
   const colorScale = [
     {
-      color: '#10b981',
+      color: '#42c9d0',
       title: 'Gentle Slope (< 20°)',
       desc: 'Quarry floors, haul roads, stable benches'
     },
     {
-      color: '#eab308',
+      color: '#ffb020',
       title: 'Moderate Slope (20° - 35°)',
       desc: 'Graded haul ramps, intermediate terraces'
     },
     {
-      color: '#ea580c',
+      color: '#ff6f2b',
       title: 'Steep Face (35° - 48°)',
       desc: 'Highwalls, bench slopes (High Risk)'
     },
     {
-      color: '#ef4444',
+      color: '#d84620',
       title: 'Critical Face (> 48°)',
       desc: 'Overhangs, active rockfall hazard zones'
     }
@@ -61,22 +61,22 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
   const curvature = statistics?.curvature ?? 0
   const riskScore = statistics?.risk_score ?? statistics?.riskScore ?? 0
 
-  let riskBadgeColor = '#22c55e'
-  let riskBadgeBg = 'rgba(34, 197, 94, 0.15)'
+  let riskBadgeColor = '#42c9d0'
+  let riskBadgeBg = 'rgba(66, 201, 208, 0.12)'
   let riskLabel = statistics?.risk_level || 'Moderate'
 
   if (riskLabel === 'Critical') {
-    riskBadgeColor = '#ef4444'
-    riskBadgeBg = 'rgba(239, 68, 68, 0.2)'
+    riskBadgeColor = '#d84620'
+    riskBadgeBg = 'rgba(216, 70, 32, 0.15)'
   } else if (riskLabel === 'High') {
-    riskBadgeColor = '#f97316'
-    riskBadgeBg = 'rgba(249, 115, 22, 0.2)'
+    riskBadgeColor = '#ff6f2b'
+    riskBadgeBg = 'rgba(255, 111, 43, 0.15)'
   } else if (riskLabel === 'Moderate') {
-    riskBadgeColor = '#eab308'
-    riskBadgeBg = 'rgba(234, 179, 8, 0.2)'
+    riskBadgeColor = '#ffb020'
+    riskBadgeBg = 'rgba(255, 176, 32, 0.15)'
   } else {
-    riskBadgeColor = '#22c55e'
-    riskBadgeBg = 'rgba(34, 197, 94, 0.15)'
+    riskBadgeColor = '#42c9d0'
+    riskBadgeBg = 'rgba(66, 201, 208, 0.12)'
     riskLabel = 'Low'
   }
 

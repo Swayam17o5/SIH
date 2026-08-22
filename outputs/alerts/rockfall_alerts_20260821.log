@@ -1,0 +1,8 @@
+2026-08-21 23:56:51,389 - INFO - Rockfall detection system started
+2026-08-21 23:56:51,682 - INFO - Sensor alert system started
+2026-08-21 23:56:52,008 - WARNING - CPLE_AppDefined in PROJ: internal_proj_create_from_database: crs not found: EPSG:50164
+2026-08-21 23:56:52,008 - WARNING - CPLE_AppDefined in At least one of VerticalCSTypeGeoKey, VerticalDatumGeoKey or VerticalUnitsGeoKey has a value in the private user range. Ignoring vertical information.
+2026-08-21 23:58:23,397 - INFO - Rockfall detection system started
+2026-08-21 23:58:23,690 - INFO - Sensor alert system started
+2026-08-21 23:58:23,835 - WARNING - CPLE_AppDefined in PROJ: internal_proj_create_from_database: crs not found: EPSG:50164
+2026-08-21 23:58:23,835 - WARNING - CPLE_AppDefined in At least one of VerticalCSTypeGeoKey, VerticalDatumGeoKey or VerticalUnitsGeoKey has a value in the private user range. Ignoring vertical information.

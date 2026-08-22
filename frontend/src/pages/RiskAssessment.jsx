@@ -110,21 +110,21 @@ const RiskAssessment = () => {
   
   const getRiskColor = (level) => {
     switch (level?.toLowerCase()) {
-      case 'low': return '#10b981'
-      case 'medium': return '#f59e0b'
-      case 'high': return '#ef4444'
-      case 'critical': return '#dc2626'
-      default: return '#6b7280'
+      case 'low': return 'var(--status-success)'
+      case 'medium': return 'var(--status-warning)'
+      case 'high': return 'var(--status-danger)'
+      case 'critical': return 'var(--status-danger)'
+      default: return 'text.secondary'
     }
   }
   
   const getRiskIcon = (level) => {
     switch (level?.toLowerCase()) {
-      case 'low': return <CheckIcon sx={{ color: '#10b981' }} />
-      case 'medium': return <WarningIcon sx={{ color: '#f59e0b' }} />
-      case 'high': return <ErrorIcon sx={{ color: '#ef4444' }} />
-      case 'critical': return <ErrorIcon sx={{ color: '#dc2626' }} />
-      default: return <AssessmentIcon sx={{ color: '#6b7280' }} />
+      case 'low': return <CheckIcon color="success" />
+      case 'medium': return <WarningIcon color="warning" />
+      case 'high': return <ErrorIcon color="error" />
+      case 'critical': return <ErrorIcon color="error" />
+      default: return <AssessmentIcon sx={{ color: 'text.secondary' }} />
     }
   }
   
@@ -185,10 +185,10 @@ const RiskAssessment = () => {
                   <Grid item xs={12}>
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <TerrainIcon sx={{ mr: 1, color: '#8b5cf6' }} />
+                        <TerrainIcon sx={{ mr: 1, color: 'secondary.main' }} />
                         Geological Factors
                       </Typography>
-                      <Divider sx={{ borderColor: '#334155' }} />
+                      <Divider sx={{ borderColor: 'var(--border-primary)' }} />
                     </Box>
                   </Grid>
                   
@@ -202,7 +202,7 @@ const RiskAssessment = () => {
                       min={0}
                       max={90}
                       valueLabelDisplay="auto"
-                      sx={{ color: '#3b82f6' }}
+                      color="primary"
                     />
                   </Grid>
                   
@@ -216,7 +216,7 @@ const RiskAssessment = () => {
                       min={0}
                       max={5000}
                       valueLabelDisplay="auto"
-                      sx={{ color: '#3b82f6' }}
+                      color="primary"
                     />
                   </Grid>
                   
@@ -242,7 +242,7 @@ const RiskAssessment = () => {
                       max={1}
                       step={0.1}
                       valueLabelDisplay="auto"
-                      sx={{ color: '#3b82f6' }}
+                      color="primary"
                     />
                   </Grid>
                   
@@ -257,7 +257,7 @@ const RiskAssessment = () => {
                       max={1}
                       step={0.1}
                       valueLabelDisplay="auto"
-                      sx={{ color: '#3b82f6' }}
+                      color="primary"
                     />
                   </Grid>
                   
@@ -272,7 +272,7 @@ const RiskAssessment = () => {
                       max={1}
                       step={0.1}
                       valueLabelDisplay="auto"
-                      sx={{ color: '#3b82f6' }}
+                      color="primary"
                     />
                   </Grid>
                   
@@ -280,10 +280,10 @@ const RiskAssessment = () => {
                   <Grid item xs={12}>
                     <Box sx={{ mb: 2, mt: 3 }}>
                       <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <WaterIcon sx={{ mr: 1, color: '#06b6d4' }} />
-                        Environmental Factors
+                        <WaterIcon sx={{ mr: 1, color: 'secondary.main' }} />
+                        Meteorological Factors
                       </Typography>
-                      <Divider sx={{ borderColor: '#334155' }} />
+                      <Divider sx={{ borderColor: 'var(--border-primary)' }} />
                     </Box>
                   </Grid>
                   
@@ -296,7 +296,7 @@ const RiskAssessment = () => {
                       onChange={(e) => handleInputChange('rainfall', parseFloat(e.target.value) || 0)}
                       inputProps={{ min: 0, max: 500 }}
                       InputProps={{
-                        endAdornment: <WaterIcon sx={{ color: '#06b6d4' }} />
+                        endAdornment: <WaterIcon color="secondary" />
                       }}
                     />
                   </Grid>
@@ -310,7 +310,7 @@ const RiskAssessment = () => {
                       onChange={(e) => handleInputChange('temperature', parseFloat(e.target.value) || 0)}
                       inputProps={{ min: -50, max: 50 }}
                       InputProps={{
-                        endAdornment: <TempIcon sx={{ color: '#f59e0b' }} />
+                        endAdornment: <TempIcon color="warning" />
                       }}
                     />
                   </Grid>
@@ -348,7 +348,7 @@ const RiskAssessment = () => {
                       max={1}
                       step={0.1}
                       valueLabelDisplay="auto"
-                      sx={{ color: '#06b6d4' }}
+                      color="secondary"
                     />
                   </Grid>
                   
@@ -383,7 +383,7 @@ const RiskAssessment = () => {
                       onChange={(e) => handleInputChange('wind_speed', parseFloat(e.target.value) || 0)}
                       inputProps={{ min: 0, max: 200 }}
                       InputProps={{
-                        endAdornment: <WindIcon sx={{ color: '#64748b' }} />
+                        endAdornment: <WindIcon color="action" />
                       }}
                     />
                   </Grid>
@@ -403,10 +403,10 @@ const RiskAssessment = () => {
                   <Grid item xs={12}>
                     <Box sx={{ mb: 2, mt: 3 }}>
                       <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <SpeedIcon sx={{ mr: 1, color: '#8b5cf6' }} />
-                        Temporal Factors
+                        <SpeedIcon sx={{ mr: 1, color: 'secondary.main' }} />
+                        Triggering Factors
                       </Typography>
-                      <Divider sx={{ borderColor: '#334155' }} />
+                      <Divider sx={{ borderColor: 'var(--border-primary)' }} />
                     </Box>
                   </Grid>
                   
@@ -525,8 +525,8 @@ const RiskAssessment = () => {
                     {/* Probability and Confidence */}
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                       <Grid item xs={6}>
-                        <Paper sx={{ p: 2, textAlign: 'center' }}>
-                          <Typography variant="h5" sx={{ fontWeight: 600, color: '#3b82f6' }}>
+                        <Paper sx={{ p: 2, textAlign: 'center', border: '1px solid var(--border-primary)', backgroundColor: 'background.default' }}>
+                          <Typography variant="h5" sx={{ fontWeight: 600, color: 'primary.main', fontFamily: 'var(--font-mono)' }}>
                             {(riskResults.risk_score * 100).toFixed(1)}%
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
@@ -535,8 +535,8 @@ const RiskAssessment = () => {
                         </Paper>
                       </Grid>
                       <Grid item xs={6}>
-                        <Paper sx={{ p: 2, textAlign: 'center' }}>
-                          <Typography variant="h5" sx={{ fontWeight: 600, color: '#10b981' }}>
+                        <Paper sx={{ p: 2, textAlign: 'center', border: '1px solid var(--border-primary)', backgroundColor: 'background.default' }}>
+                          <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main', fontFamily: 'var(--font-mono)' }}>
                             {(riskResults.confidence * 100).toFixed(1)}%
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
@@ -570,7 +570,7 @@ const RiskAssessment = () => {
                   </motion.div>
                 ) : (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <AssessmentIcon sx={{ fontSize: 64, color: '#64748b', mb: 2 }} />
+                    <AssessmentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="body1" color="text.secondary">
                       Configure parameters and click "Assess Risk" to see results
                     </Typography>

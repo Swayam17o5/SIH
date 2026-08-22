@@ -187,36 +187,36 @@ export function buildTerrainGeometry(mesh3d, options = {}) {
     const slope = slopeArray[i]
 
     if (slope < 20) {
-      // Gentle slope (Stable floor/bench): Teal to Emerald
+      // Gentle slope (Stable): Turquoise
       const t = slope / 20.0
       tempColor.setRGB(
-        0.05 + 0.06 * t,
-        0.58 + 0.17 * t,
-        0.53 - 0.20 * t
+        0.26 - 0.09 * t,
+        0.79 - 0.15 * t,
+        0.82 - 0.15 * t
       )
     } else if (slope < 35) {
-      // Moderate slope: Lime to Golden Yellow
+      // Moderate slope: Deep Turquoise to Amber
       const t = (slope - 20.0) / 15.0
       tempColor.setRGB(
-        0.50 + 0.42 * t,
-        0.80 - 0.10 * t,
-        0.09 - 0.06 * t
+        0.17 + 0.83 * t,
+        0.64 + 0.05 * t,
+        0.67 - 0.54 * t
       )
     } else if (slope < 48) {
-      // Steep Quarry Face: Amber to Rust Orange
+      // Steep Face: Amber to Orange
       const t = (slope - 35.0) / 13.0
       tempColor.setRGB(
-        0.95 + 0.03 * t,
-        0.50 - 0.24 * t,
-        0.05 - 0.02 * t
+        1.0,
+        0.69 - 0.25 * t,
+        0.13 + 0.04 * t
       )
     } else {
-      // Critical Rockfall Hazard Face (> 48°): Crimson to Bright Red
+      // Critical Hazard Face: Orange to Tectonic Crimson Red
       const t = Math.min(1.0, (slope - 48.0) / 25.0)
       tempColor.setRGB(
-        0.94 + 0.05 * t,
-        0.20 - 0.12 * t,
-        0.20 - 0.12 * t
+        1.0 - 0.15 * t,
+        0.44 - 0.17 * t,
+        0.17 - 0.04 * t
       )
     }
 

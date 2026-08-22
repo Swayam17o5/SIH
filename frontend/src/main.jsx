@@ -12,33 +12,33 @@ const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#3b82f6',
-      light: '#60a5fa',
-      dark: '#2563eb',
+      main: '#42c9d0',
+      light: '#6fe0dd',
+      dark: '#1e9b89',
     },
     secondary: {
-      main: '#8b5cf6',
-      light: '#a78bfa',
-      dark: '#7c3aed',
+      main: '#6fe0dd',
+      light: '#a1f2ef',
+      dark: '#2ba4ab',
     },
     error: {
-      main: '#ef4444',
-      light: '#f87171',
-      dark: '#dc2626',
+      main: '#d84620',
+      light: '#ff6f2b',
+      dark: '#be123c',
     },
     warning: {
-      main: '#f59e0b',
-      light: '#fbbf24',
-      dark: '#d97706',
+      main: '#ffb020',
+      light: '#ffc760',
+      dark: '#b45309',
     },
     success: {
-      main: '#10b981',
-      light: '#34d399',
-      dark: '#059669',
+      main: '#42c9d0',
+      light: '#6fe0dd',
+      dark: '#1e9b89',
     },
     background: {
-      default: '#0f172a',
-      paper: '#1e293b',
+      default: '#050708',
+      paper: '#0b1215',
     },
     text: {
       primary: '#f8fafc',
@@ -46,36 +46,40 @@ const darkTheme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Outfit", "Inter", "Helvetica", "Arial", sans-serif',
     h1: {
-      fontWeight: 700,
+      fontWeight: 800,
+      letterSpacing: '-0.02em',
     },
     h2: {
-      fontWeight: 600,
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
     },
     h3: {
-      fontWeight: 600,
+      fontWeight: 700,
+      letterSpacing: '-0.01em',
     },
     h4: {
-      fontWeight: 500,
+      fontWeight: 650,
+      letterSpacing: '-0.01em',
     },
     h5: {
-      fontWeight: 500,
+      fontWeight: 600,
     },
     h6: {
-      fontWeight: 500,
+      fontWeight: 600,
     },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 4,
   },
   components: {
     MuiCard: {
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: '#1e293b',
-          border: '1px solid #334155',
+          backgroundColor: '#0b1215',
+          border: '1px solid #263338',
         },
       },
     },
@@ -83,8 +87,17 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          borderRadius: 8,
-          fontWeight: 500,
+          borderRadius: 4,
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 4,
+          fontFamily: '"Space Mono", monospace',
+          fontWeight: 600,
         },
       },
     },
@@ -92,8 +105,8 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: '#1e293b',
-          borderBottom: '1px solid #334155',
+          backgroundColor: '#0b1215',
+          borderBottom: '1px solid #263338',
         },
       },
     },
@@ -111,19 +124,19 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#1e293b',
+              background: '#12141a',
               color: '#f8fafc',
-              border: '1px solid #334155',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
             },
             success: {
               iconTheme: {
-                primary: '#10b981',
+                primary: '#0d9488',
                 secondary: '#f8fafc',
               },
             },
             error: {
               iconTheme: {
-                primary: '#ef4444',
+                primary: '#e11d48',
                 secondary: '#f8fafc',
               },
             },

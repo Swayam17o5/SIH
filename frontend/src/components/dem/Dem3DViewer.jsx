@@ -122,7 +122,7 @@ const Dem3DViewer = ({ mesh3d, siteName, onTerrainComputed }) => {
       const ringGeo = new THREE.RingGeometry(2.5, 4.0, 32)
       ringGeo.rotateX(-Math.PI / 2)
       const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xef4444,
+        color: 0xd84620,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.9
@@ -143,8 +143,8 @@ const Dem3DViewer = ({ mesh3d, siteName, onTerrainComputed }) => {
     const height = container.clientHeight || 500
 
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x0a0f1d)
-    scene.fog = new THREE.FogExp2(0x0a0f1d, 0.0035)
+    scene.background = new THREE.Color(0x050708)
+    scene.fog = new THREE.FogExp2(0x050708, 0.0035)
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000)
     stateRef.current.camera = camera
@@ -169,7 +169,7 @@ const Dem3DViewer = ({ mesh3d, siteName, onTerrainComputed }) => {
     mainSun.castShadow = true
     scene.add(mainSun)
 
-    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.45)
+    const fillLight = new THREE.DirectionalLight(0x42c9d0, 0.45)
     fillLight.position.set(-80, 60, -80)
     scene.add(fillLight)
 
