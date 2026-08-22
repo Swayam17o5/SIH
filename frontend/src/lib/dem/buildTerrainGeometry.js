@@ -61,7 +61,8 @@ export function buildTerrainGeometry(mesh3d, options = {}) {
   }
   const stdElev = Math.sqrt(sumSqDiff / totalCells)
   const elevRange = Math.max(1, maxElev - minElev)
-  const baseRelief = terrainSize * 0.22
+  // Dynamic vertical relief based on true elevation range (15 to 45 units)
+  const baseRelief = Math.min(45, Math.max(14, (elevRange / 1200) * 32.0))
 
   // 2. Create PlaneGeometry on XZ plane
   const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, gridX - 1, gridY - 1)
@@ -70,6 +71,8 @@ export function buildTerrainGeometry(mesh3d, options = {}) {
   const positions = geometry.attributes.position.array
   const vertexCount = positions.length / 3
   const colors = new Float32Array(vertexCount * 3)
+
+  const hasPrecomputedSlopes = Array.isArray(mesh3d.slopes) && mesh3d.slopes.length === gridY
 
   // 3. Compute per-vertex spatial finite-difference slopes, curvature, and TRI roughness
   let detectedMaxSlope = 0
@@ -104,7 +107,7 @@ export function buildTerrainGeometry(mesh3d, options = {}) {
       const dz_dy = (elevations[rNext][c] - elevations[rPrev][c]) / distRows
 
       const gradMag = Math.sqrt(dz_dx * dz_dx + dz_dy * dz_dy)
-      const slopeDeg = Math.atan(gradMag) * (180 / Math.PI)
+      const slopeDeg = hasPrecomputedSlopes ? mesh3d.slopes[r][c] : Math.atan(gradMag) * (180 / Math.PI)
       slopeArray[idx] = slopeDeg
       sumSlope += slopeDeg
 
@@ -159,13 +162,9 @@ export function buildTerrainGeometry(mesh3d, options = {}) {
   const meanCurvature = sumLaplacian / totalCells
 
   // 5. Multi-Factor Geomorphological Terrain Risk Score (0 - 100)
-  // Factor 1: Slope Distribution & High Slope Area (0-40 pts)
   const f_slope = Math.min(40.0, (meanSlope / 30.0) * 20.0 + (slopeAreaGt30 / 20.0) * 10.0 + (slopeAreaGt48 / 4.0) * 10.0)
-  // Factor 2: Vertical Relief & Energy (0-30 pts)
   const f_relief = Math.min(30.0, (elevRange / 1200.0) * 20.0 + (meanRoughness / 15.0) * 10.0)
-  // Factor 3: Highwall Sharpness (0-20 pts)
   const f_highwall = Math.min(20.0, detectedMaxSlope > 15 ? ((detectedMaxSlope - 15.0) / 60.0) * 20.0 : 0)
-  // Factor 4: Curvature / Disruption (0-10 pts)
   const f_curv = Math.min(10.0, (meanCurvature / 0.005) * 10.0)
 
   const totalRiskScore = Math.round((f_slope + f_relief + f_highwall + f_curv) * 10) / 10
@@ -181,43 +180,33 @@ export function buildTerrainGeometry(mesh3d, options = {}) {
     riskLevel = 'Low'
   }
 
-  // 6. Slope-Driven Vertex Coloring
+  // 6. Elevation & Slope Multi-Layer Vertex Coloring
   const tempColor = new THREE.Color()
   for (let i = 0; i < vertexCount; i++) {
     const slope = slopeArray[i]
+    const r = Math.floor(i / gridX)
+    const c = i % gridX
+    const elevNorm = (elevations[r][c] - minElev) / elevRange
 
-    if (slope < 20) {
-      // Gentle slope (Stable): Turquoise
-      const t = slope / 20.0
-      tempColor.setRGB(
-        0.26 - 0.09 * t,
-        0.79 - 0.15 * t,
-        0.82 - 0.15 * t
-      )
-    } else if (slope < 35) {
-      // Moderate slope: Deep Turquoise to Amber
-      const t = (slope - 20.0) / 15.0
-      tempColor.setRGB(
-        0.17 + 0.83 * t,
-        0.64 + 0.05 * t,
-        0.67 - 0.54 * t
-      )
-    } else if (slope < 48) {
-      // Steep Face: Amber to Orange
-      const t = (slope - 35.0) / 13.0
-      tempColor.setRGB(
-        1.0,
-        0.69 - 0.25 * t,
-        0.13 + 0.04 * t
-      )
+    if (slope > 45) {
+      // Steep Cliff / Highwall: Crimson to Bright Red
+      const t = Math.min(1.0, (slope - 45.0) / 25.0)
+      tempColor.setRGB(0.93 + 0.07 * t, 0.27 - 0.15 * t, 0.25 - 0.15 * t)
+    } else if (slope > 30) {
+      // Intermediate Slope: Orange Amber
+      const t = (slope - 30.0) / 15.0
+      tempColor.setRGB(0.95, 0.55 - 0.15 * t, 0.15)
+    } else if (elevNorm > 0.85) {
+      // High Mountain Peak / Waste Rim: Silver White
+      tempColor.setRGB(0.92, 0.94, 0.98)
+    } else if (elevNorm < 0.20) {
+      // Deep Pit Sump Floor: Dark Ocean Teal
+      const t = elevNorm / 0.20
+      tempColor.setRGB(0.08 + 0.1 * t, 0.25 + 0.2 * t, 0.42 + 0.2 * t)
     } else {
-      // Critical Hazard Face: Orange to Tectonic Crimson Red
-      const t = Math.min(1.0, (slope - 48.0) / 25.0)
-      tempColor.setRGB(
-        1.0 - 0.15 * t,
-        0.44 - 0.17 * t,
-        0.17 - 0.04 * t
-      )
+      // Bench Terraces: Emerald Green to Gold
+      const t = (elevNorm - 0.20) / 0.65
+      tempColor.setRGB(0.12 + 0.7 * t, 0.70 + 0.1 * t, 0.45 - 0.3 * t)
     }
 
     colors[i * 3] = tempColor.r

@@ -19,6 +19,8 @@ import rasterio
 import rasterio.features
 from rasterio.windows import Window
 from rasterio.warp import calculate_default_transform, reproject, Resampling
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.patches import Rectangle

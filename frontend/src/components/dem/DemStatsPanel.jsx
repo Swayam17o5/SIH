@@ -237,7 +237,7 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
               </Grid>
 
               {/* Geomorphic Characteristics: Roughness & Curvature */}
-              <Box sx={{ backgroundColor: '#0f172a', p: 1.5, borderRadius: 1.5, border: '1px solid #334155' }}>
+              <Box sx={{ backgroundColor: '#0f172a', p: 1.5, borderRadius: 1.5, border: '1px solid #334155', mb: 2 }}>
                 <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.75, display: 'block' }}>
                   Geomorphological Attributes
                 </Typography>
@@ -268,6 +268,109 @@ const DemStatsPanel = ({ statistics, selectedFile, demFiles, sourceInfo }) => {
                   </Grid>
                 </Grid>
               </Box>
+
+              {/* CRITICAL / HIGH RISK REASONS & GEOLOGICAL JUSTIFICATION CARD */}
+              {riskScore > 0 && (
+                <Box
+                  sx={{
+                    p: 2,
+                    backgroundColor: riskLabel === 'Critical' ? 'rgba(239, 68, 68, 0.08)' : riskLabel === 'High' ? 'rgba(249, 115, 22, 0.08)' : 'rgba(59, 130, 246, 0.06)',
+                    borderRadius: 2,
+                    border: `1px solid ${riskBadgeColor}50`,
+                    boxShadow: `0 4px 15px ${riskBadgeColor}15`
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ color: riskBadgeColor, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.9rem' }}>
+                      <span>{riskLabel === 'Critical' ? '🚨' : riskLabel === 'High' ? '⚠️' : 'ℹ️'}</span>
+                      {riskLabel.toUpperCase()} RISK ANALYSIS & JUSTIFICATION
+                    </Typography>
+                    <Chip
+                      label={`${riskScore}/100 Risk Score`}
+                      size="small"
+                      sx={{
+                        backgroundColor: riskBadgeColor,
+                        color: 'white',
+                        fontWeight: 800,
+                        height: 20,
+                        fontSize: '0.68rem'
+                      }}
+                    />
+                  </Box>
+
+                  <Typography variant="caption" sx={{ color: '#94a3b8', mb: 1.5, display: 'block', fontSize: '0.75rem' }}>
+                    Key geological factors triggering the <strong>{riskLabel} Risk</strong> classification for this mining terrain:
+                  </Typography>
+
+                  <Stack spacing={1} sx={{ mb: 1.5 }}>
+                    {areaGt48 > 0.5 && (
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: 1.25, border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 800, lineHeight: 1.2 }}>🛑</Typography>
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.78rem' }}>
+                            Critical Highwall Face Area ({areaGt48}% > 48°)
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#cbd5e1', fontSize: '0.7rem', display: 'block' }}>
+                            {areaGt48}% of pit surface exceeds 48° (threshold: &gt;2%), creating dangerous overhangs & active planar slip planes.
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+
+                    {maxSlope >= 40 && (
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: 1.25, border: '1px solid rgba(249, 115, 22, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#f97316', fontWeight: 800, lineHeight: 1.2 }}>⚡</Typography>
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.78rem' }}>
+                            Extreme Peak Slope Angle ({maxSlope}°)
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#cbd5e1', fontSize: '0.7rem', display: 'block' }}>
+                            Maximum slope angle reaches {maxSlope}°, far exceeding the stable angle of repose (35° - 38°).
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+
+                    {areaGt30 > 10 && (
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: 1.25, border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#eab308', fontWeight: 800, lineHeight: 1.2 }}>⛰️</Typography>
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.78rem' }}>
+                            High Steep Surface Ratio ({areaGt30}% > 30°)
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#cbd5e1', fontSize: '0.7rem', display: 'block' }}>
+                            Over {areaGt30}% of total quarry area is steeper than 30°, accelerating potential rock movement.
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+
+                    {statistics.elevation_range > 200 && (
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: 1.25, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#60a5fa', fontWeight: 800, lineHeight: 1.2 }}>📉</Typography>
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.78rem' }}>
+                            High Vertical Relief Energy ({statistics.elevation_range}m)
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#cbd5e1', fontSize: '0.7rem', display: 'block' }}>
+                            Elevation difference of {statistics.elevation_range}m provides massive potential kinetic energy in slope failure events.
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+                  </Stack>
+
+                  {/* Recommended Action Box */}
+                  <Box sx={{ p: 1, backgroundColor: 'rgba(15, 23, 42, 0.8)', borderRadius: 1, border: '1px stroke rgba(255,255,255,0.1)' }}>
+                    <Typography variant="caption" sx={{ color: '#38bdf8', fontWeight: 700, display: 'block', fontSize: '0.72rem' }}>
+                      🛡️ Recommended Geotechnical Protocol:
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.68rem' }}>
+                      Restrict personnel access near sector highwalls. Maintain continuous radar displacement scanning & drone thermal surveys.
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
             </CardContent>
           </Card>
         </motion.div>
