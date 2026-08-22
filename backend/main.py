@@ -566,6 +566,14 @@ app.add_middleware(
 # Static file serving removed for separate deployment
 # Frontend will be deployed separately
 
+# Mount Satellite InSAR routes
+try:
+    from src.satellite.routes import router as satellite_router
+    app.include_router(satellite_router, prefix="/api/satellite", tags=["satellite"])
+    logger.info("✅ Mounted Satellite InSAR routes")
+except Exception as e:
+    logger.error(f"❌ Failed to mount Satellite InSAR routes: {e}")
+
 @app.get("/", response_class=JSONResponse)
 async def root():
     """Root endpoint with API information"""
