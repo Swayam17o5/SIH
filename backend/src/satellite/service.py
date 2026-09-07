@@ -65,10 +65,11 @@ class SatelliteService:
         
         obs_list = []
         zone_displacements = {
-            "zone_01": [-1.8, -2.4, -3.1, -2.7, -3.6], # Active highwall bench displacement
-            "zone_02": [-0.6, -0.9, -1.2, -0.8, -1.1], # Moderate WEST bench movement
-            "zone_03": [-0.2, -0.4, -0.1, -0.3, -0.5], # Minor North rim movement
-            "zone_04": [0.1, 0.0, 0.1, -0.1, 0.0]      # Stable South Tailings Boundary
+            "zone_01": [1.2, 2.5, 3.8, 5.1, 7.4],       # Main Pit East Wall (creeping: ~20.0mm sum)
+            "zone_02": [0.4, 0.8, 1.2, 1.5, 2.1],       # Main Pit West Wall (minor creep: ~6.0mm sum)
+            "zone_03": [1.82, 3.80, 5.90, 8.16, 19.60], # North Highwall Sector (accelerating critical: 39.28mm cumulative sum, 1.633 mm/day velocity, 0.061 mm/day^2 accel)
+            "zone_04": [0.05, 0.05, 0.05, 0.05, 0.10],   # South Tailings Boundary (stable: ~0.3mm sum)
+            "zone_05": [1.5, 3.2, 4.8, 6.1, 3.0]        # Active Overburden Dump
         }
 
         for ref_date, sec_date in sample_dates:
@@ -77,7 +78,7 @@ class SatelliteService:
                 disp = zone_displacements.get(zone_id, [0.0]*5)[idx]
                 days = 12.0
                 vel = round(disp / days, 3)
-                coherence = 0.88 if zone_id != "zone_04" else 0.94
+                coherence = 0.82 if zone_id == "zone_03" else (0.88 if zone_id != "zone_04" else 0.94)
                 
                 obs_list.append(
                     DeformationObservation(
@@ -85,7 +86,7 @@ class SatelliteService:
                         timestamp=sec_date,
                         latitude=zone_info["latitude"],
                         longitude=zone_info["longitude"],
-                        deformation_mm=disp,
+                        deformation_mm=round(disp, 2),
                         velocity_mm_per_day=vel,
                         coherence=coherence,
                         quality="good" if coherence >= 0.6 else "low",

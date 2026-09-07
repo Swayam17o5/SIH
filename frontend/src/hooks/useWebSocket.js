@@ -105,7 +105,12 @@ const useWebSocket = (endpoint) => {
         clearTimeout(reconnectTimeout)
       }
       if (ws.current) {
+        ws.current.onopen = null
+        ws.current.onmessage = null
+        ws.current.onclose = null
+        ws.current.onerror = null
         ws.current.close()
+        ws.current = null
       }
     }
   }, [endpoint, usingFallback])

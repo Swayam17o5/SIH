@@ -62,6 +62,8 @@ const Detection = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [inputDiagnostics, setInputDiagnostics] = useState(null)
+  const [riskAssessmentResult, setRiskAssessmentResult] = useState(null)
+  const [riskMessage, setRiskMessage] = useState(null)
 
   // Model Settings
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.25)
@@ -343,10 +345,15 @@ const Detection = () => {
         tile_size: String(tileSize),
         tile_overlap: '0.25'
       })
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
+
       const response = await fetch(getApiUrl(`/api/detect-rocks?${detectionParams.toString()}`), {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}))

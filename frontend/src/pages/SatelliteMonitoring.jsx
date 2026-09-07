@@ -554,14 +554,15 @@ const SatelliteMonitoring = () => {
                             }}
                           />
                           <Tooltip
+                            formatter={(value) => [`${Number(value).toFixed(2)} mm`, 'Cumulative Displacement']}
                             contentStyle={{
                               background: 'var(--bg-secondary)',
                               border: '1px solid var(--border-primary)',
-                              borderRadius: '4px',
+                              borderRadius: '6px',
                               color: '#fff',
                               fontFamily: 'var(--font-sans)',
                             }}
-                            labelStyle={{ color: '#64748b', fontWeight: 600, fontFamily: 'var(--font-mono)' }}
+                            labelStyle={{ color: '#94a3b8', fontWeight: 600, fontFamily: 'var(--font-mono)' }}
                           />
                           <Area
                             type="monotone"
@@ -571,7 +572,6 @@ const SatelliteMonitoring = () => {
                             fillOpacity={1}
                             fill="url(#colorDeform)"
                             name="Cumulative Displacement"
-                            unit=" mm"
                           />
                           {/* Baseline Reference Line */}
                           <ReferenceLine y={0} stroke="#64748b" strokeWidth={1} strokeDasharray="3 3" />

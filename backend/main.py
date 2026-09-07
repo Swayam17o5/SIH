@@ -76,6 +76,10 @@ CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "32"))
 
 # Add backend paths for imports - deployment compatible
+import site
+user_site = site.getusersitepackages()
+if user_site not in sys.path:
+    sys.path.append(user_site)
 sys.path.append(str(backend_root))
 sys.path.append(str(backend_root / "src"))
 
