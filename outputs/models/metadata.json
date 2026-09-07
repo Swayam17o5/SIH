@@ -1,0 +1,134 @@
+{
+  "version": "2.0-calibrated-4tier",
+  "labels": [
+    "LOW",
+    "MEDIUM",
+    "HIGH",
+    "CRITICAL"
+  ],
+  "feature_names": [
+    "slope",
+    "elevation",
+    "fracture_density",
+    "roughness",
+    "slope_variability",
+    "instability_index",
+    "wetness_index",
+    "month",
+    "day_of_year",
+    "season",
+    "rainfall",
+    "temperature",
+    "temperature_variation",
+    "freeze_thaw_cycles",
+    "seismic_activity",
+    "wind_speed",
+    "precipitation_intensity",
+    "humidity"
+  ],
+  "feature_count": 18,
+  "thresholds": {
+    "low_max": 0.28,
+    "medium_max": 0.58,
+    "high_max": 0.8
+  },
+  "models": {
+    "xgboost": {
+      "accuracy": 0.8679166666666667,
+      "macro_f1": 0.837746402155428
+    },
+    "random_forest": {
+      "accuracy": 0.8695833333333334,
+      "macro_f1": 0.8251965541315698
+    },
+    "ensemble": {
+      "accuracy": 0.88125,
+      "macro_f1": 0.8510256364974877
+    }
+  },
+  "feature_importances": {
+    "slope": 0.08637838810682297,
+    "elevation": 0.013661310076713562,
+    "fracture_density": 0.06444144994020462,
+    "roughness": 0.014442979358136654,
+    "slope_variability": 0.014260037802159786,
+    "instability_index": 0.25859421491622925,
+    "wetness_index": 0.02090936340391636,
+    "month": 0.029587719589471817,
+    "day_of_year": 0.028010375797748566,
+    "season": 0.030985139310359955,
+    "rainfall": 0.13648660480976105,
+    "temperature": 0.020772624760866165,
+    "temperature_variation": 0.017363209277391434,
+    "freeze_thaw_cycles": 0.04809270054101944,
+    "seismic_activity": 0.10983087867498398,
+    "wind_speed": 0.020024443045258522,
+    "precipitation_intensity": 0.07212067395448685,
+    "humidity": 0.014037870801985264
+  },
+  "classification_report": {
+    "LOW": {
+      "precision": 0.7017543859649122,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.7619047619047619,
+      "support": 192.0
+    },
+    "MEDIUM": {
+      "precision": 0.9418429003021148,
+      "recall": 0.8894436519258203,
+      "f1-score": 0.9148936170212766,
+      "support": 1402.0
+    },
+    "HIGH": {
+      "precision": 0.8171701112877583,
+      "recall": 0.8801369863013698,
+      "f1-score": 0.8474855729596042,
+      "support": 584.0
+    },
+    "CRITICAL": {
+      "precision": 0.8858447488584474,
+      "recall": 0.8738738738738738,
+      "f1-score": 0.8798185941043084,
+      "support": 222.0
+    },
+    "accuracy": 0.88125,
+    "macro avg": {
+      "precision": 0.8366530366033081,
+      "recall": 0.8691969613585994,
+      "f1-score": 0.8510256364974877,
+      "support": 2400.0
+    },
+    "weighted avg": {
+      "precision": 0.8871189448197727,
+      "recall": 0.88125,
+      "f1-score": 0.883007444937129,
+      "support": 2400.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      160,
+      32,
+      0,
+      0
+    ],
+    [
+      68,
+      1247,
+      87,
+      0
+    ],
+    [
+      0,
+      45,
+      514,
+      25
+    ],
+    [
+      0,
+      0,
+      28,
+      194
+    ]
+  ]
+}

@@ -40,30 +40,30 @@ const DEMAnalysis = () => {
   const [imageLoaded, setImageLoaded] = useState(false)
 
   // Available DEM files with explicit, honest source classifications
-  const demFiles = [
+  const [demFiles, setDemFiles] = useState([
     {
       id: 'bailadila_iron_mine',
       name: 'Bailadila Iron Ore Mine',
       location: 'Chhattisgarh, India',
-      source_type: 'synthetic',
-      source: 'Geologically Representative Demo Data',
-      is_real_data: false,
-      crs: 'EPSG:32644 (UTM 44N)',
-      resolution: '15m grid',
-      disclaimer: 'Terrain is representative demo data and should not be interpreted as live mine measurements.',
-      description: 'Geologically representative open-pit iron ore model featuring steep highwalls, quarry benches, and waste dumps.'
+      source_type: 'verified_dem',
+      source: 'Copernicus DEM 30m / SRTM',
+      is_real_data: true,
+      crs: 'EPSG:4326',
+      resolution: '30m',
+      disclaimer: null,
+      description: 'Real Copernicus/SRTM 30m satellite elevation model of Bailadila complex.'
     },
     {
       id: 'malanjkhand_copper_mine',
       name: 'Malanjkhand Copper Mine',
       location: 'Madhya Pradesh, India',
-      source_type: 'synthetic',
-      source: 'Geologically Representative Demo Data',
-      is_real_data: false,
-      crs: 'EPSG:32644 (UTM 44N)',
-      resolution: '15m grid',
-      disclaimer: 'Terrain is representative demo data and should not be interpreted as live mine measurements.',
-      description: 'Geologically representative open-cast copper pit model with multi-tier concentric bench geometry.'
+      source_type: 'verified_dem',
+      source: 'Copernicus DEM 30m / SRTM',
+      is_real_data: true,
+      crs: 'EPSG:4326',
+      resolution: '30m',
+      disclaimer: null,
+      description: 'Real Copernicus/SRTM 30m satellite elevation model of Malanjkhand pit.'
     },
     {
       id: 'chuquicamata',
@@ -72,8 +72,8 @@ const DEMAnalysis = () => {
       source_type: 'verified_dem',
       source: 'SRTM 30m / USGS OpenTopography Satellite Raster',
       is_real_data: true,
-      crs: 'EPSG:4326 (WGS84)',
-      resolution: '~21m (0.0002°)',
+      crs: 'EPSG:4326',
+      resolution: '~21m',
       disclaimer: null,
       description: 'Satellite-derived DEM raster of Chuquicamata open-pit mine (USGS/SRTM).'
     },
@@ -84,8 +84,8 @@ const DEMAnalysis = () => {
       source_type: 'verified_dem',
       source: 'USGS 3DEP / SRTM Satellite Raster',
       is_real_data: true,
-      crs: 'EPSG:4326 (WGS84)',
-      resolution: '~25m (0.0003°)',
+      crs: 'EPSG:4326',
+      resolution: '~25m',
       disclaimer: null,
       description: 'Satellite-derived DEM raster of Bingham Canyon open-pit mine (USGS 3DEP).'
     },
@@ -96,12 +96,39 @@ const DEMAnalysis = () => {
       source_type: 'verified_dem',
       source: 'SRTM / ALOS PALSAR Satellite Raster',
       is_real_data: true,
-      crs: 'EPSG:4326 (WGS84)',
-      resolution: '~15m (0.00013°)',
+      crs: 'EPSG:4326',
+      resolution: '~15m',
       disclaimer: null,
       description: 'Satellite-derived DEM raster of high-altitude Grasberg mining complex (SRTM/ALOS).'
     }
-  ]
+  ])
+
+  // Fetch registered mines list on mount
+  useEffect(() => {
+    const fetchRegisteredMines = async () => {
+      try {
+        const resp = await apiRequest('/api/dem/files')
+        if (resp && resp.files && resp.files.length > 0) {
+          const formatted = resp.files.map(f => ({
+            id: f.id,
+            name: f.name,
+            location: f.region ? `${f.region}, ${f.country}` : f.country,
+            source_type: f.source_type || (f.is_real_data ? 'verified_dem' : 'synthetic'),
+            source: f.source,
+            is_real_data: f.is_real_data,
+            crs: f.crs || 'EPSG:4326',
+            resolution: typeof f.resolution === 'object' ? `${f.resolution?.x_m || 30}m` : (f.resolution || '30m'),
+            disclaimer: f.disclaimer,
+            description: `${f.mine_type || 'Open-pit mine'} in ${f.region || f.country}.`
+          }))
+          setDemFiles(formatted)
+        }
+      } catch (err) {
+        console.warn('Using default DEM site registry:', err)
+      }
+    }
+    fetchRegisteredMines()
+  }, [])
 
   // Fetch DEM data when selectedDEM changes
   const fetchDEMData = useCallback(async () => {
